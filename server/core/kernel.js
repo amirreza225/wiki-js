@@ -42,6 +42,13 @@ module.exports = {
       }
       WIKI.extensions = require('./extensions')
       WIKI.asar = require('./asar')
+      WIKI.plugins = {
+        loader: require('../plugins/loader'),
+        manager: require('../plugins/manager'),
+        runtime: require('../plugins/runtime'),
+        security: require('../plugins/security'),
+        hooks: require('../plugins/hooks')
+      }
     } catch (err) {
       WIKI.logger.error(err)
       process.exit(1)
@@ -77,6 +84,7 @@ module.exports = {
     await WIKI.models.renderers.refreshRenderersFromDisk()
     await WIKI.models.searchEngines.refreshSearchEnginesFromDisk()
     await WIKI.models.storage.refreshTargetsFromDisk()
+    await WIKI.models.plugins.refreshPluginsFromDisk()
 
     await WIKI.extensions.init()
 
@@ -84,6 +92,7 @@ module.exports = {
     await WIKI.models.commentProviders.initProvider()
     await WIKI.models.searchEngines.initEngine()
     await WIKI.models.storage.initTargets()
+    await WIKI.models.plugins.initPlugins()
     WIKI.scheduler.start()
 
     await WIKI.models.subscribeToNotifications()

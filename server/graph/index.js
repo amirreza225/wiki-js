@@ -25,6 +25,17 @@ schemas.forEach(schema => {
   typeDefs.push(fs.readFileSync(path.join(WIKI.SERVERPATH, `graph/schemas/${schema}`), 'utf8'))
 })
 
+// Load plugin GraphQL schemas (requires restart for changes)
+if (WIKI.data && WIKI.data.plugins) {
+  for (const plugin of WIKI.data.plugins) {
+    const schemaPath = path.join(plugin.installPath, 'graphql', 'schema.graphql')
+    if (fs.existsSync(schemaPath)) {
+      WIKI.logger.info(`Loading GraphQL schema for plugin: ${plugin.id}`)
+      typeDefs.push(fs.readFileSync(schemaPath, 'utf8'))
+    }
+  }
+}
+
 // Resolvers
 
 let resolvers = {
@@ -34,6 +45,18 @@ const resolversObj = _.values(autoload(path.join(WIKI.SERVERPATH, 'graph/resolve
 resolversObj.forEach(resolver => {
   _.merge(resolvers, resolver)
 })
+
+// Load plugin GraphQL resolvers (requires restart for changes)
+if (WIKI.data && WIKI.data.plugins) {
+  for (const plugin of WIKI.data.plugins) {
+    const resolversPath = path.join(plugin.installPath, 'graphql', 'resolvers.js')
+    if (fs.existsSync(resolversPath)) {
+      WIKI.logger.info(`Loading GraphQL resolvers for plugin: ${plugin.id}`)
+      const pluginResolvers = require(resolversPath)
+      _.merge(resolvers, pluginResolvers)
+    }
+  }
+}
 
 // Directives
 

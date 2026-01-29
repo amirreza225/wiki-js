@@ -1,0 +1,75 @@
+# ===============================================
+# PLUGINS
+# ===============================================
+
+extend type Query {
+  plugins: PluginQuery
+}
+
+extend type Mutation {
+  plugins: PluginMutation
+}
+
+# -----------------------------------------------
+# QUERIES
+# -----------------------------------------------
+
+type PluginQuery {
+  list: [Plugin] @auth(requires: ["manage:system"])
+  single(id: String!): Plugin @auth(requires: ["manage:system"])
+  errors(pluginId: String!): [PluginError] @auth(requires: ["manage:system"])
+}
+
+# -----------------------------------------------
+# MUTATIONS
+# -----------------------------------------------
+
+type PluginMutation {
+  install(zipPath: String!): DefaultResponse @auth(requires: ["manage:system"])
+  activate(id: String!): PluginActivationResponse @auth(requires: ["manage:system"])
+  deactivate(id: String!): PluginActivationResponse @auth(requires: ["manage:system"])
+  uninstall(id: String!): DefaultResponse @auth(requires: ["manage:system"])
+  updateConfig(id: String!, config: JSON!): DefaultResponse @auth(requires: ["manage:system"])
+}
+
+# -----------------------------------------------
+# TYPES
+# -----------------------------------------------
+
+type Plugin {
+  id: String!
+  name: String!
+  version: String!
+  description: String
+  author: JSON
+  license: String
+  repository: JSON
+  homepage: String
+  keywords: [String]
+  compatibility: JSON
+  config: JSON
+  permissions: [String]
+  isEnabled: Boolean!
+  isInstalled: Boolean!
+  installPath: String
+  status: String!
+  state: JSON
+  installedAt: Date
+  updatedAt: Date
+  activatedAt: Date
+}
+
+type PluginError {
+  id: Int!
+  pluginId: String!
+  errorType: String!
+  errorMessage: String
+  stackTrace: String
+  createdAt: Date!
+  resolved: Boolean!
+}
+
+type PluginActivationResponse {
+  responseResult: ResponseStatus!
+  requiresRestart: Boolean!
+}

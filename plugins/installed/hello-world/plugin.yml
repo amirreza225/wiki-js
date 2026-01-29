@@ -1,0 +1,41 @@
+id: hello-world
+name: Hello World Plugin
+version: 1.0.0
+description: A simple example plugin demonstrating the Wiki.js plugin system
+author:
+  name: Wiki.js Team
+  email: support@requarks.io
+  url: https://js.wiki
+license: MIT
+homepage: https://docs.requarks.io/plugins/hello-world
+keywords:
+  - example
+  - demo
+  - hello-world
+
+compatibility:
+  wikijs: ">=2.5.0"
+  node: ">=18.0.0"
+
+permissions:
+  - config:read
+  - events:emit
+  - core:read
+
+config:
+  schema:
+    greeting:
+      type: string
+      title: Greeting Message
+      hint: The greeting message to display
+      order: 1
+      default: Hello, World!
+    enabled:
+      type: boolean
+      title: Enable Plugin
+      order: 2
+      default: true
+
+hooks:
+  - page:save
+  - user:login
