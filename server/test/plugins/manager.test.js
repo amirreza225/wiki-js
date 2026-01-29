@@ -31,8 +31,12 @@ describe('plugins/manager', () => {
     const testPluginPath = '/test/plugin/path'
 
     it('detects GraphQL schema file', async () => {
-      fs.pathExists.mockImplementation((path) => {
-        return Promise.resolve(path.includes('schema.graphql'))
+      fs.pathExists.mockImplementation((checkPath) => {
+        // graphql directory exists, schema.graphql exists, resolvers.js doesn't
+        if (checkPath.endsWith('graphql')) return Promise.resolve(true)
+        if (checkPath.includes('schema.graphql')) return Promise.resolve(true)
+        if (checkPath.includes('resolvers.js')) return Promise.resolve(false)
+        return Promise.resolve(false)
       })
 
       const hasGraphQL = await manager.hasGraphQLExtensions(testPluginPath)
@@ -41,8 +45,12 @@ describe('plugins/manager', () => {
     })
 
     it('detects GraphQL resolvers file', async () => {
-      fs.pathExists.mockImplementation((path) => {
-        return Promise.resolve(path.includes('resolvers.js'))
+      fs.pathExists.mockImplementation((checkPath) => {
+        // graphql directory exists, resolvers.js exists, schema.graphql doesn't
+        if (checkPath.endsWith('graphql')) return Promise.resolve(true)
+        if (checkPath.includes('resolvers.js')) return Promise.resolve(true)
+        if (checkPath.includes('schema.graphql')) return Promise.resolve(false)
+        return Promise.resolve(false)
       })
 
       const hasGraphQL = await manager.hasGraphQLExtensions(testPluginPath)

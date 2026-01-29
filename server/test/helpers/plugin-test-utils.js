@@ -76,6 +76,8 @@ module.exports = {
    * @returns {Object} Mock WIKI object
    */
   createMockWIKI() {
+    const mockKnex = jest.fn()
+
     return {
       version: '2.5.0',
       ROOTPATH: '/test/root',
@@ -83,7 +85,9 @@ module.exports = {
       data: {
         plugins: []
       },
+      db: mockKnex,
       models: {
+        knex: mockKnex,
         plugins: {
           query: jest.fn(() => ({
             findById: jest.fn(),
@@ -149,7 +153,10 @@ module.exports = {
       name: 'Test Plugin',
       version: '1.0.0',
       description: 'Test plugin for testing',
-      author: 'Test Author',
+      author: {
+        name: 'Test Author',
+        email: 'test@example.com'
+      },
       license: 'MIT',
       compatibility: {
         wikijs: '>=2.5.0',

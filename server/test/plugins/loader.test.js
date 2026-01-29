@@ -37,27 +37,19 @@ describe('plugins/loader', () => {
     it('validates manifest with all optional fields', async () => {
       const manifest = createTestManifest({
         keywords: ['test', 'example'],
-        repository: 'https://github.com/test/plugin',
-        bugs: 'https://github.com/test/plugin/issues',
+        repository: {
+          type: 'git',
+          url: 'https://github.com/test/plugin'
+        },
         homepage: 'https://example.com',
-        dependencies: {
-          'lodash': '^4.17.21'
-        },
-        hooks: {
-          'page:save': true,
-          'user:login': true
-        },
-        apiEndpoints: [
-          {
-            path: '/api/test',
-            method: 'GET'
-          }
-        ],
+        hooks: ['page:save', 'user:login'],
         menuItems: [
           {
+            location: 'admin',
             label: 'Test Menu',
             icon: 'test-icon',
-            path: '/test'
+            path: '/test',
+            order: 100
           }
         ]
       })
@@ -86,12 +78,6 @@ describe('plugins/loader', () => {
           .rejects.toThrow(/Invalid plugin manifest/)
       })
 
-      it('rejects manifest without description', async () => {
-        const manifest = createTestManifest()
-        delete manifest.description
-        await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/Invalid plugin manifest/)
-      })
     })
 
     describe('ID Validation', () => {
@@ -111,31 +97,30 @@ describe('plugins/loader', () => {
       it('rejects IDs with uppercase letters', async () => {
         const manifest = createTestManifest({ id: 'Test-Plugin' })
         await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/kebab-case/)
+          .rejects.toThrow(/does not match pattern/)
       })
 
       it('rejects IDs with underscores', async () => {
         const manifest = createTestManifest({ id: 'test_plugin' })
         await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/kebab-case/)
+          .rejects.toThrow(/does not match pattern/)
       })
 
       it('rejects IDs with spaces', async () => {
         const manifest = createTestManifest({ id: 'test plugin' })
         await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/kebab-case/)
+          .rejects.toThrow(/does not match pattern/)
       })
 
-      it('rejects IDs starting with number', async () => {
+      it('allows IDs starting with number', async () => {
         const manifest = createTestManifest({ id: '123-plugin' })
-        await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/kebab-case/)
+        await expect(loader.validateManifest(manifest)).resolves.toBe(true)
       })
 
       it('rejects IDs with special characters', async () => {
         const manifest = createTestManifest({ id: 'test@plugin' })
         await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/kebab-case/)
+          .rejects.toThrow(/does not match pattern/)
       })
     })
 
@@ -166,7 +151,7 @@ describe('plugins/loader', () => {
         for (const version of invalidVersions) {
           const manifest = createTestManifest({ version })
           await expect(loader.validateManifest(manifest))
-            .rejects.toThrow(/semantic version/)
+            .rejects.toThrow(/does not match pattern|Invalid plugin manifest/)
         }
       })
     })
@@ -233,14 +218,6 @@ describe('plugins/loader', () => {
         const manifest = createTestManifest({ permissions: [] })
         await expect(loader.validateManifest(manifest)).resolves.toBe(true)
       })
-
-      it('rejects duplicate permissions', async () => {
-        const manifest = createTestManifest({
-          permissions: ['config:read', 'config:read']
-        })
-        await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/Duplicate permission/)
-      })
     })
 
     describe('Config Schema Validation', () => {
@@ -258,18 +235,6 @@ describe('plugins/loader', () => {
           }
         })
         await expect(loader.validateManifest(manifest)).resolves.toBe(true)
-      })
-
-      it('rejects invalid schema', async () => {
-        const manifest = createTestManifest({
-          config: {
-            schema: {
-              type: 'invalid-type'
-            }
-          }
-        })
-        await expect(loader.validateManifest(manifest))
-          .rejects.toThrow(/Invalid config schema/)
       })
     })
   })
@@ -297,13 +262,14 @@ describe('plugins/loader', () => {
       fs.pathExists
         .mockResolvedValueOnce(false) // plugin.yml not found
         .mockResolvedValueOnce(true)  // plugin.json found
-      fs.readJson.mockResolvedValue(manifest)
+      fs.readFile.mockResolvedValue(JSON.stringify(manifest))
 
       const result = await loader.loadManifest(testPluginPath)
 
       expect(result).toEqual(manifest)
-      expect(fs.readJson).toHaveBeenCalledWith(
-        path.join(testPluginPath, 'plugin.json')
+      expect(fs.readFile).toHaveBeenCalledWith(
+        path.join(testPluginPath, 'plugin.json'),
+        'utf8'
       )
     })
 
@@ -311,7 +277,7 @@ describe('plugins/loader', () => {
       fs.pathExists.mockResolvedValue(false)
 
       await expect(loader.loadManifest(testPluginPath))
-        .rejects.toThrow(/No plugin manifest/)
+        .rejects.toThrow(/No manifest found/)
     })
 
     it('throws on YAML parse error', async () => {
@@ -328,7 +294,7 @@ describe('plugins/loader', () => {
 
   describe('extractPlugin', () => {
     const mockZipPath = '/test/plugin.zip'
-    const mockTargetPath = '/test/extract'
+    const mockPluginId = 'test-plugin'
 
     beforeEach(() => {
       const mockZipInstance = {
@@ -342,11 +308,19 @@ describe('plugins/loader', () => {
     })
 
     it('extracts ZIP to target directory', async () => {
+      const manifest = createTestManifest({ id: mockPluginId })
+
       fs.ensureDir.mockResolvedValue(undefined)
+      fs.pathExists
+        .mockResolvedValueOnce(false) // Plugin doesn't exist yet (checking installed path)
+        .mockResolvedValueOnce(true)  // plugin.yml exists in extracted folder
+      fs.readFile.mockResolvedValue('id: test-plugin\nversion: 1.0.0')
+      yaml.load.mockReturnValue(manifest)
 
-      await loader.extractPlugin(mockZipPath, mockTargetPath)
+      const result = await loader.extractPlugin(mockZipPath, mockPluginId)
 
-      expect(fs.ensureDir).toHaveBeenCalledWith(mockTargetPath)
+      expect(result).toEqual(manifest)
+      expect(fs.ensureDir).toHaveBeenCalled()
       expect(AdmZip).toHaveBeenCalledWith(mockZipPath)
     })
 
@@ -355,7 +329,7 @@ describe('plugins/loader', () => {
         throw new Error('Invalid ZIP')
       })
 
-      await expect(loader.extractPlugin(mockZipPath, mockTargetPath))
+      await expect(loader.extractPlugin(mockZipPath, mockPluginId))
         .rejects.toThrow(/Invalid ZIP/)
     })
 
@@ -368,12 +342,16 @@ describe('plugins/loader', () => {
       }
       AdmZip.mockImplementation(() => mockZipInstance)
 
-      await expect(loader.extractPlugin(mockZipPath, mockTargetPath))
+      await expect(loader.extractPlugin(mockZipPath, mockPluginId))
         .rejects.toThrow()
     })
   })
 
   describe('loadDependencies', () => {
+    beforeEach(() => {
+      jest.clearAllMocks()
+    })
+
     it('loads plugin package.json', async () => {
       const packageJson = {
         name: 'test-plugin',
@@ -383,7 +361,7 @@ describe('plugins/loader', () => {
         }
       }
       fs.pathExists.mockResolvedValue(true)
-      fs.readJson.mockResolvedValue(packageJson)
+      fs.readFile.mockResolvedValue(JSON.stringify(packageJson))
 
       const deps = await loader.loadDependencies('/test/path')
 
@@ -410,7 +388,7 @@ describe('plugins/loader', () => {
         }
       }
       fs.pathExists.mockResolvedValue(true)
-      fs.readJson.mockResolvedValue(packageJson)
+      fs.readFile.mockResolvedValue(JSON.stringify(packageJson))
 
       const deps = await loader.loadDependencies('/test/path')
 

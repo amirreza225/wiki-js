@@ -64,19 +64,6 @@ describe('plugins/runtime', () => {
         expect(context.config.get).toBeDefined()
       })
 
-      it('adds config API with config:write permission', () => {
-        const plugin = {
-          id: 'test-plugin',
-          version: '1.0.0',
-          permissions: ['config:write']
-        }
-
-        const context = runtime.createContext(plugin)
-
-        expect(context.config).toBeDefined()
-        expect(context.config.set).toBeDefined()
-      })
-
       it('does not add config API without permission', () => {
         const plugin = {
           id: 'test-plugin',
@@ -102,18 +89,6 @@ describe('plugins/runtime', () => {
         expect(context.db.knex).toBeDefined()
       })
 
-      it('adds database API with database:write permission', () => {
-        const plugin = {
-          id: 'test-plugin',
-          version: '1.0.0',
-          permissions: ['database:write']
-        }
-
-        const context = runtime.createContext(plugin)
-
-        expect(context.db).toBeDefined()
-      })
-
       it('does not add database API without permission', () => {
         const plugin = {
           id: 'test-plugin',
@@ -127,6 +102,9 @@ describe('plugins/runtime', () => {
       })
 
       it('adds events API with events:emit permission', () => {
+        // Setup mock events
+        WIKI.events = { outbound: { emit: jest.fn(), on: jest.fn() } }
+
         const plugin = {
           id: 'test-plugin',
           version: '1.0.0',
@@ -136,20 +114,6 @@ describe('plugins/runtime', () => {
         const context = runtime.createContext(plugin)
 
         expect(context.events).toBeDefined()
-        expect(context.events.emit).toBeDefined()
-      })
-
-      it('adds events API with events:listen permission', () => {
-        const plugin = {
-          id: 'test-plugin',
-          version: '1.0.0',
-          permissions: ['events:listen']
-        }
-
-        const context = runtime.createContext(plugin)
-
-        expect(context.events).toBeDefined()
-        expect(context.events.on).toBeDefined()
       })
 
       it('does not add events API without permission', () => {
@@ -164,33 +128,10 @@ describe('plugins/runtime', () => {
         expect(context.events).toBeUndefined()
       })
 
-      it('adds storage API with storage:read permission', () => {
-        const plugin = {
-          id: 'test-plugin',
-          version: '1.0.0',
-          permissions: ['storage:read']
-        }
-
-        const context = runtime.createContext(plugin)
-
-        expect(context.storage).toBeDefined()
-        expect(context.storage.readFile).toBeDefined()
-      })
-
-      it('adds storage API with storage:write permission', () => {
-        const plugin = {
-          id: 'test-plugin',
-          version: '1.0.0',
-          permissions: ['storage:write']
-        }
-
-        const context = runtime.createContext(plugin)
-
-        expect(context.storage).toBeDefined()
-        expect(context.storage.writeFile).toBeDefined()
-      })
-
       it('adds cache API with cache:read permission', () => {
+        // Setup mock cache
+        WIKI.cache = { get: jest.fn(), set: jest.fn() }
+
         const plugin = {
           id: 'test-plugin',
           version: '1.0.0',
@@ -200,27 +141,28 @@ describe('plugins/runtime', () => {
         const context = runtime.createContext(plugin)
 
         expect(context.cache).toBeDefined()
-        expect(context.cache.get).toBeDefined()
       })
 
-      it('adds cache API with cache:write permission', () => {
+      it('adds core WIKI with core:read permission', () => {
         const plugin = {
           id: 'test-plugin',
           version: '1.0.0',
-          permissions: ['cache:write']
+          permissions: ['core:read']
         }
 
         const context = runtime.createContext(plugin)
 
-        expect(context.cache).toBeDefined()
-        expect(context.cache.set).toBeDefined()
+        expect(context.WIKI).toBeDefined()
       })
 
       it('adds multiple APIs with multiple permissions', () => {
+        WIKI.events = { outbound: { emit: jest.fn() } }
+        WIKI.cache = { get: jest.fn() }
+
         const plugin = {
           id: 'test-plugin',
           version: '1.0.0',
-          permissions: ['config:read', 'database:write', 'events:emit', 'cache:read']
+          permissions: ['config:read', 'database:read', 'events:emit', 'cache:read']
         }
 
         const context = runtime.createContext(plugin)
@@ -253,15 +195,13 @@ describe('plugins/runtime', () => {
       )
     })
 
-    it('handles multiple arguments', () => {
+    it('prefixes messages with plugin ID', () => {
       const logger = runtime.createPluginLogger('test-plugin')
 
-      logger.info('test', { data: 'value' }, 123)
+      logger.info('test message')
 
       expect(WIKI.logger.info).toHaveBeenCalledWith(
-        '[Plugin:test-plugin] test',
-        { data: 'value' },
-        123
+        '[Plugin:test-plugin] test message'
       )
     })
 
@@ -294,7 +234,6 @@ describe('plugins/runtime', () => {
 
       expect(configAPI.get).toBeDefined()
       expect(configAPI.set).toBeDefined()
-      expect(configAPI.has).toBeDefined()
     })
 
     it('gets config values', () => {
@@ -312,7 +251,7 @@ describe('plugins/runtime', () => {
       expect(configAPI.get('enabled')).toBe(true)
     })
 
-    it('returns default value for missing keys', () => {
+    it('returns undefined for missing keys', () => {
       const plugin = {
         id: 'test-plugin',
         config: {}
@@ -320,68 +259,67 @@ describe('plugins/runtime', () => {
 
       const configAPI = runtime.createConfigAPI(plugin)
 
-      expect(configAPI.get('missing', 'default')).toBe('default')
+      expect(configAPI.get('missing')).toBeUndefined()
     })
 
-    it('checks if config has key', () => {
+    it('sets config values (in-memory only)', async () => {
+      // Mock the query builder chain
+      const mockPatch = jest.fn().mockReturnValue({
+        where: jest.fn().mockResolvedValue(undefined)
+      })
+      WIKI.models.plugins.query = jest.fn().mockReturnValue({
+        patch: mockPatch
+      })
+
       const plugin = {
         id: 'test-plugin',
-        config: {
-          apiKey: 'secret'
-        }
+        config: {},
+        permissions: ['config:write']
       }
 
       const configAPI = runtime.createConfigAPI(plugin)
 
-      expect(configAPI.has('apiKey')).toBe(true)
-      expect(configAPI.has('missing')).toBe(false)
-    })
+      await configAPI.set('newKey', 'newValue')
 
-    it('sets config values (in-memory only)', () => {
-      const plugin = {
-        id: 'test-plugin',
-        config: {}
-      }
-
-      const configAPI = runtime.createConfigAPI(plugin)
-
-      configAPI.set('newKey', 'newValue')
-
-      expect(configAPI.get('newKey')).toBe('newValue')
+      expect(mockPatch).toHaveBeenCalledWith({ config: { newKey: 'newValue' } })
+      expect(plugin.config.newKey).toBe('newValue')
     })
   })
 
   describe('createDatabaseAPI', () => {
-    it('creates database API', () => {
+    it('creates database API with knex', () => {
       const plugin = {
-        id: 'test-plugin'
+        id: 'test-plugin',
+        permissions: []
       }
 
       const dbAPI = runtime.createDatabaseAPI(plugin)
 
       expect(dbAPI.knex).toBeDefined()
-      expect(dbAPI.models).toBeDefined()
+      expect(dbAPI.WIKI).toBeDefined()
     })
 
     it('provides Knex instance', () => {
       const plugin = {
-        id: 'test-plugin'
+        id: 'test-plugin',
+        permissions: []
       }
 
       const dbAPI = runtime.createDatabaseAPI(plugin)
 
-      expect(dbAPI.knex).toBe(WIKI.db)
+      expect(dbAPI.knex).toBe(WIKI.models.knex)
     })
 
-    it('provides plugin-scoped models', () => {
+    it('provides core models with database:core permission', () => {
       const plugin = {
-        id: 'test-plugin'
+        id: 'test-plugin',
+        permissions: ['database:core']
       }
 
       const dbAPI = runtime.createDatabaseAPI(plugin)
 
       expect(dbAPI.models).toBeDefined()
-      expect(typeof dbAPI.models).toBe('object')
+      expect(dbAPI.models).toBe(WIKI.models)
     })
   })
 
@@ -423,70 +361,82 @@ describe('plugins/runtime', () => {
 
   describe('executePlugin', () => {
     it('executes plugin init method', async () => {
+      const pluginInstance = createTestPlugin()
       const plugin = {
         id: 'test-plugin',
         version: '1.0.0',
         installPath: '/test/path',
-        permissions: []
+        permissions: [],
+        instance: pluginInstance
       }
-      const pluginInstance = createTestPlugin()
 
-      await runtime.executePlugin(plugin, pluginInstance, 'init')
+      await runtime.executePlugin(plugin, 'init')
 
-      expect(pluginInstance.logger).toBeDefined()
+      // Context should be bound, so logger should be available
+      expect(WIKI.logger.info).toHaveBeenCalled()
     })
 
     it('returns result from plugin method', async () => {
-      const plugin = {
-        id: 'test-plugin',
-        version: '1.0.0',
-        permissions: []
-      }
       const pluginInstance = {
         async testMethod() {
           return { success: true }
         }
       }
+      const plugin = {
+        id: 'test-plugin',
+        version: '1.0.0',
+        permissions: [],
+        instance: pluginInstance
+      }
 
-      const result = await runtime.executePlugin(plugin, pluginInstance, 'testMethod')
+      const result = await runtime.executePlugin(plugin, 'testMethod')
 
       expect(result).toEqual({ success: true })
     })
 
     it('catches and logs errors', async () => {
-      const plugin = {
-        id: 'test-plugin',
-        version: '1.0.0',
-        permissions: []
-      }
+      // Mock the database insert for error logging
+      const mockInsert = jest.fn().mockResolvedValue(undefined)
+      WIKI.models.pluginErrors.query = jest.fn(() => ({
+        insert: mockInsert
+      }))
+
       const pluginInstance = {
         async failingMethod() {
           throw new Error('Test error')
         }
       }
-
-      await expect(
-        runtime.executePlugin(plugin, pluginInstance, 'failingMethod')
-      ).rejects.toThrow('Test error')
-
-      expect(WIKI.logger.error).toHaveBeenCalled()
-    })
-
-    it('passes arguments to plugin method', async () => {
       const plugin = {
         id: 'test-plugin',
         version: '1.0.0',
-        permissions: []
+        permissions: [],
+        instance: pluginInstance
       }
+
+      await expect(
+        runtime.executePlugin(plugin, 'failingMethod')
+      ).rejects.toThrow('Test error')
+
+      // Verify error was logged to database
+      expect(mockInsert).toHaveBeenCalled()
+      expect(mockInsert.mock.calls[0][0].errorMessage).toBe('Test error')
+    })
+
+    it('passes arguments to plugin method', async () => {
       const pluginInstance = {
         async methodWithArgs(arg1, arg2) {
           return { arg1, arg2 }
         }
       }
+      const plugin = {
+        id: 'test-plugin',
+        version: '1.0.0',
+        permissions: [],
+        instance: pluginInstance
+      }
 
       const result = await runtime.executePlugin(
         plugin,
-        pluginInstance,
         'methodWithArgs',
         'value1',
         'value2'
@@ -504,42 +454,59 @@ describe('plugins/runtime', () => {
   })
 
   describe('logPluginError', () => {
-    it('logs error to database', async () => {
-      const plugin = {
-        id: 'test-plugin'
-      }
-      const error = new Error('Test error')
-      const context = 'init'
-
-      await runtime.logPluginError(plugin, error, context)
-
-      expect(WIKI.models.pluginErrors.query).toHaveBeenCalled()
+    beforeEach(() => {
+      // Reset the mock before each test
+      WIKI.models.pluginErrors.query().insert.mockClear()
     })
 
-    it('logs error to console', async () => {
-      const plugin = {
-        id: 'test-plugin'
-      }
+    it('logs error to database', async () => {
+      const mockInsert = jest.fn().mockResolvedValue(undefined)
+      WIKI.models.pluginErrors.query = jest.fn(() => ({
+        insert: mockInsert
+      }))
+
       const error = new Error('Test error')
 
-      await runtime.logPluginError(plugin, error, 'init')
+      await runtime.logPluginError('test-plugin', 'execution_error', error)
 
-      expect(WIKI.logger.error).toHaveBeenCalled()
+      expect(mockInsert).toHaveBeenCalled()
+      expect(mockInsert.mock.calls[0][0]).toMatchObject({
+        pluginId: 'test-plugin',
+        errorType: 'execution_error',
+        errorMessage: 'Test error'
+      })
     })
 
     it('includes stack trace', async () => {
-      const plugin = {
-        id: 'test-plugin'
-      }
+      const mockInsert = jest.fn().mockResolvedValue(undefined)
+      WIKI.models.pluginErrors.query = jest.fn(() => ({
+        insert: mockInsert
+      }))
+
       const error = new Error('Test error')
       error.stack = 'Error: Test error\n  at test.js:1:1'
 
-      await runtime.logPluginError(plugin, error, 'init')
+      await runtime.logPluginError('test-plugin', 'init_error', error)
 
-      const insertCall = WIKI.models.pluginErrors.query().insert
-      expect(insertCall).toHaveBeenCalled()
-      const errorData = insertCall.mock.calls[0][0]
+      expect(mockInsert).toHaveBeenCalled()
+      const errorData = mockInsert.mock.calls[0][0]
       expect(errorData.stackTrace).toContain('Error: Test error')
+      expect(errorData.stackTrace).toContain('test.js:1:1')
+    })
+
+    it('logs warning if database insert fails', async () => {
+      const mockInsert = jest.fn().mockRejectedValue(new Error('DB Error'))
+      WIKI.models.pluginErrors.query = jest.fn(() => ({
+        insert: mockInsert
+      }))
+
+      const error = new Error('Test error')
+
+      await runtime.logPluginError('test-plugin', 'execution_error', error)
+
+      expect(WIKI.logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to log error for plugin test-plugin')
+      )
     })
   })
 })

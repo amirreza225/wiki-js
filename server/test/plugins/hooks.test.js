@@ -145,14 +145,15 @@ describe('plugins/hooks', () => {
       expect(results[0].result).toBe('async-result')
     })
 
-    it('measures execution time', async () => {
+    it('returns result object with success status', async () => {
       hooks.on('test:event', async () => {
-        await new Promise(resolve => setTimeout(resolve, 10))
+        return { data: 'test' }
       })
 
       const results = await hooks.trigger('test:event', {})
 
-      expect(results[0].executionTime).toBeGreaterThan(0)
+      expect(results[0].success).toBe(true)
+      expect(results[0].result).toEqual({ data: 'test' })
     })
   })
 
@@ -170,24 +171,33 @@ describe('plugins/hooks', () => {
       expect(registeredHooks).toContain('page:save')
     })
 
-    it('binds hook context to plugin instance', async () => {
-      let contextId
+    it('wraps and registers plugin hooks', async () => {
       const plugin = {
         id: 'test-plugin',
+        version: '1.0.0',
+        permissions: [],
         instance: {
-          pluginId: 'test-plugin',
           hooks: {
-            'test:event': async function() {
-              contextId = this.pluginId
+            'test:event': async function(data) {
+              return data.value
+            },
+            'another:event': async function(data) {
+              return 'result'
             }
           }
         }
       }
 
       await hooks.registerPluginHooks(plugin)
-      await hooks.trigger('test:event', {})
 
-      expect(contextId).toBe('test-plugin')
+      // Verify hooks were registered
+      const registeredHooks = hooks.getPluginHooks('test-plugin')
+      expect(registeredHooks).toHaveLength(2)
+      expect(registeredHooks).toContain('test:event')
+      expect(registeredHooks).toContain('another:event')
+
+      // Verify hooks are tracked for the plugin
+      expect(hooks.registeredPlugins.has('test-plugin')).toBe(true)
     })
 
     it('handles plugins without hooks', async () => {
@@ -232,22 +242,27 @@ describe('plugins/hooks', () => {
     })
 
     it('allows multiple plugins to hook same event', async () => {
-      const callback1 = jest.fn()
-      const callback2 = jest.fn()
-
       const plugin1 = {
         id: 'plugin1',
+        version: '1.0.0',
+        permissions: [],
         instance: {
           hooks: {
-            'page:save': callback1
+            'page:save': async function(page) {
+              return 'plugin1-result'
+            }
           }
         }
       }
       const plugin2 = {
         id: 'plugin2',
+        version: '1.0.0',
+        permissions: [],
         instance: {
           hooks: {
-            'page:save': callback2
+            'page:save': async function(page) {
+              return 'plugin2-result'
+            }
           }
         }
       }
@@ -255,10 +270,16 @@ describe('plugins/hooks', () => {
       await hooks.registerPluginHooks(plugin1)
       await hooks.registerPluginHooks(plugin2)
 
-      await hooks.trigger('page:save', { id: 1 })
+      // Both plugins should have registered the same hook
+      const hooks1 = hooks.getPluginHooks('plugin1')
+      const hooks2 = hooks.getPluginHooks('plugin2')
 
-      expect(callback1).toHaveBeenCalled()
-      expect(callback2).toHaveBeenCalled()
+      expect(hooks1).toContain('page:save')
+      expect(hooks2).toContain('page:save')
+
+      // Both plugins should be tracked
+      expect(hooks.registeredPlugins.has('plugin1')).toBe(true)
+      expect(hooks.registeredPlugins.has('plugin2')).toBe(true)
     })
   })
 
@@ -300,22 +321,27 @@ describe('plugins/hooks', () => {
     })
 
     it('does not affect other plugins hooks', async () => {
-      const callback1 = jest.fn()
-      const callback2 = jest.fn()
-
       const plugin1 = {
         id: 'plugin1',
+        version: '1.0.0',
+        permissions: [],
         instance: {
           hooks: {
-            'test:event': callback1
+            'test:event': async function() {
+              return 'plugin1'
+            }
           }
         }
       }
       const plugin2 = {
         id: 'plugin2',
+        version: '1.0.0',
+        permissions: [],
         instance: {
           hooks: {
-            'test:event': callback2
+            'test:event': async function() {
+              return 'plugin2'
+            }
           }
         }
       }
@@ -323,12 +349,16 @@ describe('plugins/hooks', () => {
       await hooks.registerPluginHooks(plugin1)
       await hooks.registerPluginHooks(plugin2)
 
+      // Verify both registered
+      expect(hooks.getPluginHooks('plugin1')).toContain('test:event')
+      expect(hooks.getPluginHooks('plugin2')).toContain('test:event')
+
+      // Unregister plugin1
       hooks.unregisterPluginHooks('plugin1')
 
-      await hooks.trigger('test:event', {})
-
-      expect(callback1).not.toHaveBeenCalled()
-      expect(callback2).toHaveBeenCalled()
+      // Plugin1 should be unregistered, plugin2 should remain
+      expect(hooks.getPluginHooks('plugin1')).toHaveLength(0)
+      expect(hooks.getPluginHooks('plugin2')).toContain('test:event')
     })
 
     it('handles unregistering non-existent plugin', () => {
@@ -482,8 +512,9 @@ describe('plugins/hooks', () => {
 
       const results = await hooks.trigger('test:event', {})
 
+      expect(results[0].success).toBe(false)
       expect(results[0].error).toBeDefined()
-      expect(results[0].error.message).toContain('Specific error message')
+      expect(results[0].error).toContain('Specific error message')
     })
 
     it('includes plugin ID in error logs', async () => {

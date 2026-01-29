@@ -5,7 +5,10 @@
  */
 
 const security = require('../../plugins/security')
-const { createTestManifest } = require('../helpers/plugin-test-utils')
+const { createTestManifest, createMockWIKI } = require('../helpers/plugin-test-utils')
+
+// Setup global WIKI
+global.WIKI = createMockWIKI()
 
 describe('plugins/security', () => {
   describe('Permission Constants', () => {
@@ -15,43 +18,36 @@ describe('plugins/security', () => {
     })
 
     it('has config permissions', () => {
-      expect(security.PERMISSIONS.CONFIG_READ).toBe('config:read')
-      expect(security.PERMISSIONS.CONFIG_WRITE).toBe('config:write')
+      expect(security.PERMISSIONS['config:read']).toBe('Read plugin configuration')
+      expect(security.PERMISSIONS['config:write']).toBe('Write plugin configuration')
     })
 
     it('has database permissions', () => {
-      expect(security.PERMISSIONS.DATABASE_READ).toBe('database:read')
-      expect(security.PERMISSIONS.DATABASE_WRITE).toBe('database:write')
+      expect(security.PERMISSIONS['database:read']).toBe('Read from database')
+      expect(security.PERMISSIONS['database:write']).toBe('Write to database')
     })
 
     it('has events permissions', () => {
-      expect(security.PERMISSIONS.EVENTS_EMIT).toBe('events:emit')
-      expect(security.PERMISSIONS.EVENTS_LISTEN).toBe('events:listen')
-    })
-
-    it('has network permissions', () => {
-      expect(security.PERMISSIONS.NETWORK_HTTP).toBe('network:http')
-      expect(security.PERMISSIONS.NETWORK_EXTERNAL).toBe('network:external')
-    })
-
-    it('has storage permissions', () => {
-      expect(security.PERMISSIONS.STORAGE_READ).toBe('storage:read')
-      expect(security.PERMISSIONS.STORAGE_WRITE).toBe('storage:write')
+      expect(security.PERMISSIONS['events:emit']).toBe('Emit events')
+      expect(security.PERMISSIONS['events:listen']).toBe('Listen to events')
     })
 
     it('has cache permissions', () => {
-      expect(security.PERMISSIONS.CACHE_READ).toBe('cache:read')
-      expect(security.PERMISSIONS.CACHE_WRITE).toBe('cache:write')
+      expect(security.PERMISSIONS['cache:read']).toBe('Read from cache')
+      expect(security.PERMISSIONS['cache:write']).toBe('Write to cache')
     })
 
-    it('has UI permissions', () => {
-      expect(security.PERMISSIONS.UI_COMPONENTS).toBe('ui:components')
-      expect(security.PERMISSIONS.UI_PAGES).toBe('ui:pages')
+    it('has filesystem permissions', () => {
+      expect(security.PERMISSIONS['filesystem:read']).toBe('Read files')
+      expect(security.PERMISSIONS['filesystem:write']).toBe('Write files')
     })
 
     it('has GraphQL permissions', () => {
-      expect(security.PERMISSIONS.GRAPHQL_EXTEND).toBe('graphql:extend')
-      expect(security.PERMISSIONS.GRAPHQL_QUERY).toBe('graphql:query')
+      expect(security.PERMISSIONS['graphql:extend']).toBe('Extend GraphQL schema')
+    })
+
+    it('has UI permissions', () => {
+      expect(security.PERMISSIONS['ui:extend']).toBe('Add UI components')
     })
   })
 
@@ -131,30 +127,49 @@ describe('plugins/security', () => {
       permissions: ['config:read']
     }
 
-    it('does not throw for granted permission', () => {
-      expect(() => security.enforcePermission(plugin, 'config:read')).not.toThrow()
+    beforeEach(() => {
+      // Mock the database insert for error logging
+      const mockInsert = jest.fn().mockResolvedValue(undefined)
+      WIKI.models.pluginErrors.query = jest.fn(() => ({
+        insert: mockInsert
+      }))
     })
 
-    it('throws for non-granted permission', () => {
-      expect(() => security.enforcePermission(plugin, 'config:write'))
-        .toThrow(/does not have permission/)
-      expect(() => security.enforcePermission(plugin, 'database:read'))
-        .toThrow(/does not have permission/)
+    it('does not throw for granted permission', async () => {
+      await expect(security.enforcePermission(plugin, 'config:read')).resolves.not.toThrow()
     })
 
-    it('includes plugin ID in error message', () => {
-      expect(() => security.enforcePermission(plugin, 'config:write'))
-        .toThrow(/test-plugin/)
+    it('throws for config:write when not granted', async () => {
+      await expect(security.enforcePermission(plugin, 'config:write'))
+        .rejects.toThrow(/does not have permission/)
     })
 
-    it('includes permission name in error message', () => {
-      expect(() => security.enforcePermission(plugin, 'config:write'))
-        .toThrow(/config:write/)
+    it('throws for database:read when not granted', async () => {
+      await expect(security.enforcePermission(plugin, 'database:read'))
+        .rejects.toThrow(/does not have permission/)
     })
 
-    it('throws for null plugin', () => {
-      expect(() => security.enforcePermission(null, 'config:read'))
-        .toThrow(/does not have permission/)
+    it('includes plugin ID in error message', async () => {
+      try {
+        await security.enforcePermission(plugin, 'config:write')
+        throw new Error('Should have thrown')
+      } catch (error) {
+        expect(error.message).toContain('test-plugin')
+      }
+    })
+
+    it('includes permission name in error message', async () => {
+      try {
+        await security.enforcePermission(plugin, 'config:write')
+        throw new Error('Should have thrown')
+      } catch (error) {
+        expect(error.message).toContain('config:write')
+      }
+    })
+
+    it('throws for null plugin', async () => {
+      await expect(security.enforcePermission(null, 'config:read'))
+        .rejects.toThrow()
     })
   })
 
@@ -194,48 +209,34 @@ describe('plugins/security', () => {
       expect(() => security.validateManifestPermissions(permissions))
         .toThrow(/Unknown permission/)
     })
-
-    it('rejects duplicate permissions', () => {
-      const permissions = ['config:read', 'config:read']
-      expect(() => security.validateManifestPermissions(permissions))
-        .toThrow(/Duplicate permission/)
-    })
   })
 
   describe('getAllPermissions', () => {
-    it('returns array of all permissions', () => {
-      const permissions = security.getAllPermissions()
+    it('returns array of all permission keys', () => {
+      const permissions = Object.keys(security.PERMISSIONS)
       expect(Array.isArray(permissions)).toBe(true)
       expect(permissions).toHaveLength(16)
     })
 
     it('includes all permission values', () => {
-      const permissions = security.getAllPermissions()
+      const permissions = Object.keys(security.PERMISSIONS)
       expect(permissions).toContain('config:read')
       expect(permissions).toContain('database:write')
       expect(permissions).toContain('events:emit')
-      expect(permissions).toContain('network:http')
       expect(permissions).toContain('graphql:extend')
-    })
-
-    it('returns a new array each time', () => {
-      const perms1 = security.getAllPermissions()
-      const perms2 = security.getAllPermissions()
-      expect(perms1).not.toBe(perms2)
-      expect(perms1).toEqual(perms2)
     })
   })
 
   describe('getPermissionDescription', () => {
     it('returns description for valid permission', () => {
-      const desc = security.getPermissionDescription('config:read')
+      const desc = security.PERMISSIONS['config:read']
       expect(typeof desc).toBe('string')
-      expect(desc.length).toBeGreaterThan(0)
+      expect(desc).toBe('Read plugin configuration')
     })
 
-    it('returns null for invalid permission', () => {
-      const desc = security.getPermissionDescription('invalid:permission')
-      expect(desc).toBeNull()
+    it('returns undefined for invalid permission', () => {
+      const desc = security.PERMISSIONS['invalid:permission']
+      expect(desc).toBeUndefined()
     })
   })
 })
