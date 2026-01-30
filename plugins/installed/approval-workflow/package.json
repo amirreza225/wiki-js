@@ -1,0 +1,30 @@
+{
+  "name": "wiki-js-approval-workflow",
+  "version": "1.0.0",
+  "description": "Approval workflow plugin for Wiki.js",
+  "main": "server/index.js",
+  "author": "Wiki.js",
+  "license": "MIT",
+  "keywords": [
+    "wikijs",
+    "plugin",
+    "approval",
+    "workflow",
+    "moderation"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/requarks/wiki-plugins"
+  },
+  "peerDependencies": {
+    "objection": "^2.x",
+    "express": "^4.x",
+    "vue": "^2.6.x",
+    "vuex": "^3.x"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "build": "echo 'Run: node ../../dev/webpack/webpack.plugin.config.js'",
+    "test": "echo 'No tests configured yet'"
+  }
+}

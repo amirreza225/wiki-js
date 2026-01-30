@@ -1,0 +1,66 @@
+# Approval Workflow GraphQL Schema
+
+type ApprovalRequest {
+  id: Int!
+  pageId: Int!
+  pagePath: String!
+  pageTitle: String!
+  requesterId: Int!
+  requesterName: String!
+  requesterEmail: String!
+  approverId: Int
+  approverName: String
+  status: ApprovalStatus!
+  isNew: Boolean!
+  changeDescription: String!
+  approverNotes: String
+  requestedAt: Date!
+  reviewedAt: Date
+}
+
+enum ApprovalStatus {
+  pending
+  approved
+  rejected
+}
+
+type ApprovalStats {
+  pending: Int!
+  approved: Int!
+  rejected: Int!
+  total: Int!
+}
+
+type ApprovalRequestResult {
+  approvals: [ApprovalRequest]!
+  total: Int!
+}
+
+extend type Query {
+  approvalRequests(
+    status: ApprovalStatus
+    limit: Int
+    offset: Int
+  ): ApprovalRequestResult
+
+  approvalRequest(id: Int!): ApprovalRequest
+
+  approvalStats: ApprovalStats
+}
+
+type ApprovalMutationResult {
+  responseResult: ResponseStatus!
+  approval: ApprovalRequest
+}
+
+extend type Mutation {
+  approveRequest(
+    id: Int!
+    notes: String
+  ): ApprovalMutationResult
+
+  rejectRequest(
+    id: Int!
+    notes: String
+  ): ApprovalMutationResult
+}

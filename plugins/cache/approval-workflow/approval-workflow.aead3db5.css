@@ -1,0 +1,13 @@
+
+.pulse[data-v-424a80ba] {
+  animation: pulse-data-v-424a80ba 2s infinite;
+}
+@keyframes pulse-data-v-424a80ba {
+0%, 100% {
+    opacity: 1;
+}
+50% {
+    opacity: 0.5;
+}
+}
+

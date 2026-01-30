@@ -1,0 +1,90 @@
+id: approval-workflow
+name: Approval Workflow
+version: 1.0.0
+description: Adds approval workflow for page changes, requiring administrator approval before publishing
+author: Wiki.js
+license: MIT
+repository: https://github.com/requarks/wiki-plugins
+homepage: https://js.wiki/plugins/approval-workflow
+keywords:
+  - approval
+  - workflow
+  - moderation
+  - review
+
+compatibility:
+  wikijs: ">=2.6.0"
+
+# Required permissions
+permissions:
+  - database:read
+  - database:write
+  - api:extend
+  - graphql:extend
+  - events:emit
+
+# Configuration schema
+config:
+  schema:
+    enabled:
+      type: boolean
+      title: Enable Approval Workflow
+      hint: When enabled, all page changes require approval
+      order: 1
+      default: true
+    requireApprovalForNew:
+      type: boolean
+      title: Require Approval for New Pages
+      hint: New pages must be approved before publishing
+      order: 2
+      default: true
+    requireApprovalForEdit:
+      type: boolean
+      title: Require Approval for Page Edits
+      hint: Page edits must be approved before publishing
+      order: 3
+      default: true
+    autoApproveAdmins:
+      type: boolean
+      title: Auto-Approve Admin Changes
+      hint: Changes made by administrators are automatically approved
+      order: 4
+      default: false
+    notifyApprovers:
+      type: boolean
+      title: Notify Approvers
+      hint: Send notifications to approvers when approval is needed
+      order: 5
+      default: true
+    approverEmails:
+      type: string
+      title: Approver Email Addresses
+      hint: Comma-separated list of approver email addresses
+      order: 6
+      default: ""
+
+# Lifecycle hooks
+hooks:
+  - page:save
+
+# Admin pages
+adminPages:
+  - path: /approvals
+    component: AdminApprovals.vue
+    icon: mdi-check-circle
+    label: Approval Requests
+    order: 100
+
+# UI injections
+uiInjections:
+  - location: page:toolbar
+    component: PluginApprovalWorkflowApprovalBadge
+    position: end
+    condition: user.isAuthenticated
+
+# Store modules (Vuex)
+storeModules:
+  - approval
+
+# Indicates this plugin has client-side code
+hasClientCode: true
