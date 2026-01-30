@@ -50,15 +50,36 @@ module.exports = {
 
   /**
    * Create scoped logger for plugin
+   * Logs to both console and database
    * @param {string} pluginId - Plugin identifier
    * @returns {Object} Logger instance
    */
   createPluginLogger(pluginId) {
+    const logToDatabase = async (level, message, stackTrace = null) => {
+      try {
+        await WIKI.models.pluginErrors.log(pluginId, level, message, level, stackTrace)
+      } catch (err) {
+        WIKI.logger.warn(`[Plugin Runtime] Failed to log to database for ${pluginId}: ${err.message}`)
+      }
+    }
+
     return {
-      info: (message) => WIKI.logger.info(`[Plugin:${pluginId}] ${message}`),
-      warn: (message) => WIKI.logger.warn(`[Plugin:${pluginId}] ${message}`),
-      error: (message) => WIKI.logger.error(`[Plugin:${pluginId}] ${message}`),
-      debug: (message) => WIKI.logger.debug(`[Plugin:${pluginId}] ${message}`)
+      debug: (message) => {
+        WIKI.logger.debug(`[Plugin:${pluginId}] ${message}`)
+        logToDatabase('debug', message)
+      },
+      info: (message) => {
+        WIKI.logger.info(`[Plugin:${pluginId}] ${message}`)
+        logToDatabase('info', message)
+      },
+      warn: (message) => {
+        WIKI.logger.warn(`[Plugin:${pluginId}] ${message}`)
+        logToDatabase('warn', message)
+      },
+      error: (message, stackTrace = null) => {
+        WIKI.logger.error(`[Plugin:${pluginId}] ${message}`)
+        logToDatabase('error', message, stackTrace)
+      }
     }
   },
 

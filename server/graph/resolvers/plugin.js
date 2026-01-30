@@ -67,12 +67,33 @@ module.exports = {
     },
 
     /**
-     * Get errors for a specific plugin
+     * Get errors for a specific plugin (backward compatibility)
      */
     async errors(obj, args) {
       return WIKI.models.pluginErrors.query()
         .where('pluginId', args.pluginId)
+        .where('level', 'error')
         .orderBy('createdAt', 'desc')
+        .then(logs => logs.map(log => ({
+          ...log,
+          errorType: log.context,
+          errorMessage: log.message
+        })))
+    },
+
+    /**
+     * Get logs for a specific plugin (all levels or filtered by level)
+     */
+    async logs(obj, args) {
+      let query = WIKI.models.pluginErrors.query()
+        .where('pluginId', args.pluginId)
+
+      // Filter by level if specified
+      if (args.level) {
+        query = query.where('level', args.level)
+      }
+
+      return query.orderBy('createdAt', 'desc').limit(500)
     }
   },
   PluginMutation: {
@@ -172,6 +193,23 @@ module.exports = {
 
         return {
           responseResult: graphHelper.generateSuccess('Plugin configuration updated successfully')
+        }
+      } catch (err) {
+        return graphHelper.generateError(err)
+      }
+    },
+
+    /**
+     * Clear logs for a specific plugin
+     */
+    async clearLogs(obj, args) {
+      try {
+        await WIKI.models.pluginErrors.query()
+          .delete()
+          .where('pluginId', args.pluginId)
+
+        return {
+          responseResult: graphHelper.generateSuccess('Plugin logs cleared successfully')
         }
       } catch (err) {
         return graphHelper.generateError(err)

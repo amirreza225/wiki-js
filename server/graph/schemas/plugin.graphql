@@ -17,7 +17,8 @@ extend type Mutation {
 type PluginQuery {
   list: [Plugin] @auth(requires: ["manage:system"])
   single(id: String!): Plugin @auth(requires: ["manage:system"])
-  errors(pluginId: String!): [PluginError] @auth(requires: ["manage:system"])
+  errors(pluginId: String!): [PluginLog] @auth(requires: ["manage:system"])
+  logs(pluginId: String!, level: String): [PluginLog] @auth(requires: ["manage:system"])
 }
 
 # -----------------------------------------------
@@ -30,6 +31,7 @@ type PluginMutation {
   deactivate(id: String!): PluginActivationResponse @auth(requires: ["manage:system"])
   uninstall(id: String!): DefaultResponse @auth(requires: ["manage:system"])
   updateConfig(id: String!, config: JSON!): DefaultResponse @auth(requires: ["manage:system"])
+  clearLogs(pluginId: String!): DefaultResponse @auth(requires: ["manage:system"])
 }
 
 # -----------------------------------------------
@@ -60,6 +62,18 @@ type Plugin {
   activatedAt: Date
 }
 
+type PluginLog {
+  id: Int!
+  pluginId: String!
+  level: String!
+  context: String!
+  message: String
+  stackTrace: String
+  createdAt: Date!
+  resolved: Boolean!
+}
+
+# Backward compatibility alias
 type PluginError {
   id: Int!
   pluginId: String!

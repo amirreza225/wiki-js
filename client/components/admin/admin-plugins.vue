@@ -51,9 +51,9 @@
                   v-list-item(@click='configurePlugin(item)')
                     v-list-item-icon: v-icon mdi-cog
                     v-list-item-title Configure
-                  v-list-item(@click='viewErrors(item)', :disabled='!hasErrors(item)')
-                    v-list-item-icon: v-icon mdi-alert-circle
-                    v-list-item-title View Errors
+                  v-list-item(@click='viewLogs(item)')
+                    v-list-item-icon: v-icon mdi-text-box-outline
+                    v-list-item-title View Logs
                   v-list-item(@click='uninstallPlugin(item)', :disabled='item.isEnabled')
                     v-list-item-icon: v-icon mdi-delete
                     v-list-item-title Uninstall
@@ -139,33 +139,111 @@
           v-btn(text, @click='configDialog = false') Cancel
           v-btn(color='primary', @click='saveConfig', :loading='saving') Save
 
-    //- Errors Dialog
-    v-dialog(v-model='errorsDialog', max-width='1000')
+    //- Logs Dialog
+    v-dialog(v-model='logsDialog', max-width='1400', fullscreen)
       v-card(v-if='selectedPlugin')
-        v-toolbar(color='error', dark, dense, flat)
-          v-toolbar-title Errors for {{ selectedPlugin.name }}
+        v-toolbar(color='primary', dark, flat)
+          v-icon(large, left) mdi-math-log
+          v-toolbar-title
+            .title Plugin Logs: {{ selectedPlugin.name }}
+            .caption {{ filteredLogs.length }} log entries
           v-spacer
-          v-btn(icon, @click='errorsDialog = false')
+          v-text-field(
+            v-model='logSearchQuery'
+            append-icon='mdi-magnify'
+            label='Search logs...'
+            single-line
+            hide-details
+            dense
+            dark
+            clearable
+            style='max-width: 300px'
+            class='mr-4'
+          )
+          v-btn-toggle(v-model='logLevelFilter', mandatory, dense, dark, class='mr-2')
+            v-btn(small, value='all')
+              v-icon(small, left) mdi-filter-variant
+              span All
+            v-btn(small, value='debug')
+              v-icon(small, left) mdi-bug
+              span Debug
+            v-btn(small, value='info')
+              v-icon(small, left) mdi-information
+              span Info
+            v-btn(small, value='warn')
+              v-icon(small, left) mdi-alert
+              span Warn
+            v-btn(small, value='error')
+              v-icon(small, left) mdi-alert-circle
+              span Error
+          v-menu(offset-y, left)
+            template(v-slot:activator='{ on }')
+              v-btn(icon, v-on='on', dark)
+                v-icon mdi-dots-vertical
+            v-list(dense)
+              v-list-item(@click='exportLogs')
+                v-list-item-icon: v-icon mdi-download
+                v-list-item-title Export as JSON
+              v-list-item(@click='clearLogs', :disabled='clearingLogs')
+                v-list-item-icon: v-icon mdi-delete-sweep
+                v-list-item-title Clear All Logs
+          v-btn(icon, @click='logsDialog = false', dark)
             v-icon mdi-close
-        v-card-text.pt-4
-          v-alert(type='info', v-if='pluginErrors.length === 0') No errors recorded
-          v-timeline(dense, v-else)
-            v-timeline-item(
-              v-for='error in pluginErrors'
-              :key='error.id'
-              small
-              color='error'
-            )
-              template(v-slot:opposite)
-                span.caption {{ error.createdAt | moment('from') }}
-              v-card(flat)
-                v-card-title.caption {{ error.errorType }}
-                v-card-text
-                  .body-2 {{ error.errorMessage }}
-                  pre.caption.mt-2(v-if='error.stackTrace') {{ error.stackTrace }}
-        v-card-actions
-          v-spacer
-          v-btn(text, @click='errorsDialog = false') Close
+
+        v-card-text.pa-0
+          v-alert(type='info', text, v-if='searchedLogs.length === 0', class='ma-4')
+            span(v-if='logSearchQuery') No logs match your search query
+            span(v-else) No logs recorded
+
+          v-data-table(
+            v-else
+            :headers='logHeaders'
+            :items='searchedLogs'
+            :items-per-page='50'
+            :footer-props='{ itemsPerPageOptions: [25, 50, 100, 500] }'
+            dense
+            class='log-table'
+          )
+            template(v-slot:item.level='{ item }')
+              v-chip(
+                x-small
+                :color='getLogColor(item.level)'
+                dark
+                label
+              )
+                v-icon(x-small, left, v-text='getLogIcon(item.level)')
+                span(v-text='item.level.toUpperCase()')
+
+            template(v-slot:item.createdAt='{ item }')
+              .caption
+                div {{ item.createdAt | moment('YYYY-MM-DD HH:mm:ss') }}
+                div.grey--text {{ item.createdAt | moment('from') }}
+
+            template(v-slot:item.context='{ item }')
+              code.caption(v-text='item.context')
+
+            template(v-slot:item.message='{ item }')
+              .log-message(v-text='item.message')
+              v-expansion-panels(v-if='item.stackTrace', flat, class='mt-2')
+                v-expansion-panel
+                  v-expansion-panel-header.py-0.px-2
+                    .caption.error--text
+                      v-icon(small, color='error', left) mdi-code-tags
+                      span Stack Trace
+                  v-expansion-panel-content
+                    .stack-trace-container
+                      v-btn(
+                        x-small
+                        text
+                        @click='copyToClipboard(item.stackTrace)'
+                        class='mb-2'
+                      )
+                        v-icon(x-small, left) mdi-content-copy
+                        span Copy
+                      pre.stack-trace(v-text='item.stackTrace')
+
+            template(v-slot:item.id='{ item }')
+              code.caption.grey--text {{ '#' + item.id }}
 
     //- Uninstall Confirmation Dialog
     v-dialog(v-model='uninstallDialog', max-width='600')
@@ -207,12 +285,15 @@ export default {
       loading: false,
       saving: false,
       uninstalling: false,
+      clearingLogs: false,
       plugins: [],
       configDialog: false,
-      errorsDialog: false,
+      logsDialog: false,
       uninstallDialog: false,
       selectedPlugin: null,
-      pluginErrors: [],
+      pluginLogs: [],
+      logLevelFilter: 'all',
+      logSearchQuery: '',
       configSchema: {},
       configValues: {},
       headers: [
@@ -221,7 +302,36 @@ export default {
         { text: 'Status', value: 'status', sortable: true, width: '120px', align: 'center' },
         { text: 'Enabled', value: 'isEnabled', sortable: true, width: '100px', align: 'center' },
         { text: 'Actions', value: 'actions', sortable: false, width: '80px', align: 'center' }
+      ],
+      logHeaders: [
+        { text: 'ID', value: 'id', sortable: true, width: '80px' },
+        { text: 'Level', value: 'level', sortable: true, width: '100px' },
+        { text: 'Timestamp', value: 'createdAt', sortable: true, width: '180px' },
+        { text: 'Context', value: 'context', sortable: true, width: '150px' },
+        { text: 'Message', value: 'message', sortable: false }
       ]
+    }
+  },
+  computed: {
+    filteredLogs() {
+      if (this.logLevelFilter === 'all') {
+        return this.pluginLogs
+      }
+      return this.pluginLogs.filter(log => log.level === this.logLevelFilter)
+    },
+    searchedLogs() {
+      if (!this.logSearchQuery) {
+        return this.filteredLogs
+      }
+      const query = this.logSearchQuery.toLowerCase()
+      return this.filteredLogs.filter(log => {
+        return (
+          (log.message && log.message.toLowerCase().includes(query)) ||
+          (log.context && log.context.toLowerCase().includes(query)) ||
+          (log.stackTrace && log.stackTrace.toLowerCase().includes(query)) ||
+          (log.level && log.level.toLowerCase().includes(query))
+        )
+      })
     }
   },
   mounted() {
@@ -367,18 +477,20 @@ export default {
 
       this.configDialog = true
     },
-    async viewErrors(plugin) {
+    async viewLogs(plugin) {
       this.selectedPlugin = plugin
       this.loading = true
+      this.logLevelFilter = 'all'
       try {
         const response = await this.$apollo.query({
           query: gql`
             query($pluginId: String!) {
               plugins {
-                errors(pluginId: $pluginId) {
+                logs(pluginId: $pluginId) {
                   id
-                  errorType
-                  errorMessage
+                  level
+                  context
+                  message
                   stackTrace
                   createdAt
                   resolved
@@ -391,15 +503,60 @@ export default {
           },
           fetchPolicy: 'network-only'
         })
-        this.pluginErrors = response.data.plugins.errors || []
-        this.errorsDialog = true
+        this.pluginLogs = response.data.plugins.logs || []
+        this.logsDialog = true
       } catch (err) {
         this.$store.commit('showNotification', {
-          message: 'Failed to load errors: ' + err.message,
+          message: 'Failed to load logs: ' + err.message,
           style: 'error'
         })
       }
       this.loading = false
+    },
+    async clearLogs() {
+      if (!this.selectedPlugin) return
+
+      this.clearingLogs = true
+      try {
+        const response = await this.$apollo.mutate({
+          mutation: gql`
+            mutation($pluginId: String!) {
+              plugins {
+                clearLogs(pluginId: $pluginId) {
+                  responseResult {
+                    succeeded
+                    errorCode
+                    slug
+                    message
+                  }
+                }
+              }
+            }
+          `,
+          variables: {
+            pluginId: this.selectedPlugin.id
+          }
+        })
+
+        const result = response.data.plugins.clearLogs
+
+        if (result.responseResult.succeeded) {
+          this.$store.commit('showNotification', {
+            message: 'Logs cleared successfully',
+            style: 'success'
+          })
+          // Reload logs
+          this.pluginLogs = []
+        } else {
+          throw new Error(result.responseResult.message)
+        }
+      } catch (err) {
+        this.$store.commit('showNotification', {
+          message: 'Failed to clear logs: ' + err.message,
+          style: 'error'
+        })
+      }
+      this.clearingLogs = false
     },
     async uninstallPlugin(plugin) {
       this.selectedPlugin = plugin
@@ -510,12 +667,105 @@ export default {
         default: return 'grey'
       }
     },
-    hasErrors(plugin) {
-      return plugin.status === 'error' || (plugin.state && plugin.state.status === 'error')
+    getLogColor(level) {
+      switch (level) {
+        case 'debug': return 'grey'
+        case 'info': return 'blue'
+        case 'warn': return 'orange'
+        case 'error': return 'red'
+        default: return 'grey'
+      }
+    },
+    getLogIcon(level) {
+      switch (level) {
+        case 'debug': return 'mdi-bug'
+        case 'info': return 'mdi-information'
+        case 'warn': return 'mdi-alert'
+        case 'error': return 'mdi-alert-circle'
+        default: return 'mdi-message'
+      }
+    },
+    exportLogs() {
+      if (!this.selectedPlugin) return
+
+      const dataStr = JSON.stringify(this.searchedLogs, null, 2)
+      const dataBlob = new Blob([dataStr], { type: 'application/json' })
+      const url = URL.createObjectURL(dataBlob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${this.selectedPlugin.id}-logs-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+
+      this.$store.commit('showNotification', {
+        message: 'Logs exported successfully',
+        style: 'success'
+      })
+    },
+    copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.$store.commit('showNotification', {
+          message: 'Copied to clipboard',
+          style: 'success'
+        })
+      }).catch(err => {
+        this.$store.commit('showNotification', {
+          message: 'Failed to copy: ' + err.message,
+          style: 'error'
+        })
+      })
     }
   }
 }
 </script>
 
 <style lang='scss'>
+.log-table {
+  font-family: 'Roboto Mono', 'Courier New', monospace;
+
+  .log-message {
+    font-family: 'Roboto Mono', 'Courier New', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .stack-trace-container {
+    position: relative;
+
+    .stack-trace {
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-size: 11px;
+      background: #f5f5f5;
+      padding: 12px;
+      border-radius: 4px;
+      overflow-x: auto;
+      margin: 0;
+      color: #c62828;
+      line-height: 1.5;
+    }
+  }
+
+  code {
+    background: #f5f5f5;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+  }
+}
+
+.v-data-table {
+  ::v-deep tbody tr {
+    &:hover {
+      background-color: #f5f5f5 !important;
+    }
+  }
+
+  ::v-deep td {
+    padding: 12px 16px !important;
+  }
+}
 </style>
