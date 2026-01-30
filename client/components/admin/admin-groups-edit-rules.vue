@@ -199,8 +199,6 @@
 import _ from 'lodash'
 import { customAlphabet } from 'nanoid/non-secure'
 
-/* global siteLangs */
-
 const nanoid = customAlphabet('1234567890abcdef', 10)
 
 export default {

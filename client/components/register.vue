@@ -97,7 +97,6 @@
 </template>
 
 <script>
-/* global siteConfig */
 
 import _ from 'lodash'
 import validate from 'validate.js'

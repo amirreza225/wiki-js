@@ -1,7 +1,5 @@
 const _ = require('lodash')
 
-/* global WIKI */
-
 // ------------------------------------
 // OpenID Connect Account
 // ------------------------------------

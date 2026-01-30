@@ -5,7 +5,9 @@
     @click="showMessage"
     class="ml-2"
   >
-    <v-icon left>mdi-puzzle</v-icon>
+    <v-icon left>
+      mdi-puzzle
+    </v-icon>
     <span v-if="$vuetify.breakpoint.lgAndUp">{{ buttonText }}</span>
   </v-btn>
 </template>

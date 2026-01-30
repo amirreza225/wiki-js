@@ -1,7 +1,5 @@
 const _ = require('lodash')
 
-/* global WIKI */
-
 module.exports = async (targetKey) => {
   WIKI.logger.info(`Syncing with storage target ${targetKey}...`)
 

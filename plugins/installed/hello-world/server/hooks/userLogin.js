@@ -9,7 +9,6 @@ module.exports = async function userLoginHook(hookData, context) {
 
     // Example: Track login count
     // You could store this in a database table, etc.
-
   } catch (err) {
     context.logger.error(`Error in user:login hook: ${err.message}`)
   }

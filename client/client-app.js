@@ -1,4 +1,3 @@
-/* global siteConfig */
 
 import Vue from 'vue'
 import VueRouter from 'vue-router'
@@ -32,6 +31,42 @@ import localization from './modules/localization'
 // ====================================
 
 import helpers from './helpers'
+
+// Register commonly-used Vuetify components globally for plugins
+// This is needed because vuetify-loader uses tree-shaking, so components
+// are not automatically global. Plugins need these registered globally.
+import {
+  VApp,
+  VAppBar,
+  VAvatar,
+  VBadge,
+  VBtn,
+  VCard,
+  VCardActions,
+  VCardText,
+  VCardTitle,
+  VChip,
+  VDialog,
+  VDivider,
+  VIcon,
+  VList,
+  VListItem,
+  VListItemAction,
+  VListItemAvatar,
+  VListItemContent,
+  VListItemGroup,
+  VListItemIcon,
+  VListItemSubtitle,
+  VListItemTitle,
+  VMenu,
+  VProgressCircular,
+  VProgressLinear,
+  VSnackbar,
+  VTextField,
+  VToolbar,
+  VToolbarTitle,
+  VTooltip
+} from 'vuetify/lib'
 
 // ====================================
 // Initialize Global Vars
@@ -148,42 +183,6 @@ Vue.prototype.Velocity = Velocity
 if (typeof window !== 'undefined') {
   window.Vuetify = Vuetify
 }
-
-// Register commonly-used Vuetify components globally for plugins
-// This is needed because vuetify-loader uses tree-shaking, so components
-// are not automatically global. Plugins need these registered globally.
-import {
-  VApp,
-  VAppBar,
-  VAvatar,
-  VBadge,
-  VBtn,
-  VCard,
-  VCardActions,
-  VCardText,
-  VCardTitle,
-  VChip,
-  VDialog,
-  VDivider,
-  VIcon,
-  VList,
-  VListItem,
-  VListItemAction,
-  VListItemAvatar,
-  VListItemContent,
-  VListItemGroup,
-  VListItemIcon,
-  VListItemSubtitle,
-  VListItemTitle,
-  VMenu,
-  VProgressCircular,
-  VProgressLinear,
-  VSnackbar,
-  VTextField,
-  VToolbar,
-  VToolbarTitle,
-  VTooltip
-} from 'vuetify/lib'
 
 // Register components globally
 Vue.component('VApp', VApp)

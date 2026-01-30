@@ -1,4 +1,3 @@
-/* global WIKI */
 
 const _ = require('lodash')
 const { DateTime } = require('luxon')

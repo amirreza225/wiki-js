@@ -106,8 +106,6 @@ import validate from 'validate.js'
 import { BreedingRhombusSpinner } from 'epic-spinners'
 import confetti from 'canvas-confetti'
 
-/* global siteConfig */
-
 export default {
   components: {
     BreedingRhombusSpinner

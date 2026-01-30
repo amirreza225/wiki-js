@@ -8,8 +8,8 @@
  * working together.
  */
 
-const path = require('path')
-const { createMockWIKI, createTestManifest } = require('../helpers/plugin-test-utils')
+// const path = require('path')
+// const { createMockWIKI, createTestManifest } = require('../helpers/plugin-test-utils')
 
 // Skip these tests in normal runs - they require full database setup
 describe.skip('Plugin System Integration', () => {
@@ -67,7 +67,7 @@ describe.skip('Plugin System Integration', () => {
 
     it('should handle complete lifecycle: install -> activate -> deactivate -> uninstall', async () => {
       // Create test plugin
-      const pluginId = 'lifecycle-test-plugin'
+      // const pluginId = 'lifecycle-test-plugin'
 
       // 1. Install
       // Verify: status=installed, files exist, DB record exists
@@ -343,6 +343,7 @@ describe.skip('Plugin System Integration', () => {
 
 // Helper functions for integration tests
 
+/* eslint-disable no-unused-vars */
 async function createTestPluginZip(manifest, files = {}) {
   // Create ZIP file with manifest and server/index.js
 }
@@ -362,3 +363,4 @@ async function triggerHook(hookName, data) {
 async function queryGraphQL(query, variables = {}) {
   // Execute GraphQL query and return result
 }
+/* eslint-enable no-unused-vars */

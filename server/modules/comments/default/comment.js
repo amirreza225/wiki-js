@@ -6,8 +6,6 @@ const _ = require('lodash')
 const { AkismetClient } = require('akismet-api')
 const moment = require('moment')
 
-/* global WIKI */
-
 const window = new JSDOM('').window
 const DOMPurify = createDOMPurify(window)
 

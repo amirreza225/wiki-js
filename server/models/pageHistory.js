@@ -2,8 +2,6 @@ const Model = require('objection').Model
 const _ = require('lodash')
 const { DateTime, Duration } = require('luxon')
 
-/* global WIKI */
-
 /**
  * Page History model
  */

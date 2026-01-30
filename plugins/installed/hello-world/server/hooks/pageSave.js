@@ -9,7 +9,6 @@ module.exports = async function pageSaveHook(hookData, context) {
     context.logger.info(`Page ${action}: "${page.title}" by ${user.name}`)
 
     // Example: You could send a notification, log to external service, etc.
-
   } catch (err) {
     context.logger.error(`Error in page:save hook: ${err.message}`)
   }

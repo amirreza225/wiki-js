@@ -172,8 +172,6 @@ import markdownHelp from './markdown/help.vue'
 import gql from 'graphql-tag'
 import DOMPurify from 'dompurify'
 
-/* global siteConfig, siteLangs */
-
 // ========================================
 // IMPORTS
 // ========================================

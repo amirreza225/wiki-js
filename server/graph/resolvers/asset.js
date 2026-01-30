@@ -3,8 +3,6 @@ const sanitize = require('sanitize-filename')
 const graphHelper = require('../../helpers/graph')
 const assetHelper = require('../../helpers/asset')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async assets() { return {} }

@@ -9,8 +9,6 @@ import site from './site'
 import user from './user'
 import plugins from './plugins'
 
-/* global WIKI */
-
 Vue.use(Vuex)
 
 const state = {

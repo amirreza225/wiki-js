@@ -79,8 +79,6 @@ import _ from 'lodash'
 import gql from 'graphql-tag'
 import { sync, get } from 'vuex-pathify'
 
-/* global siteConfig */
-
 // ========================================
 // IMPORTS
 // ========================================

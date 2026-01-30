@@ -12,8 +12,6 @@ const nanoid = require('nanoid/non-secure').customAlphabet('1234567890abcdef', 1
 
 const getosAsync = require('util').promisify(getos)
 
-/* global WIKI */
-
 const dbTypes = {
   mysql: 'MySQL',
   mariadb: 'MariaDB',

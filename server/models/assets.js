@@ -1,4 +1,3 @@
-/* global WIKI */
 
 const Model = require('objection').Model
 const moment = require('moment')

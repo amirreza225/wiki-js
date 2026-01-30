@@ -413,9 +413,9 @@ export default {
 
         if (result.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: plugin.isEnabled
-              ? `Plugin ${plugin.name} activated successfully`
-              : `Plugin ${plugin.name} deactivated successfully`,
+            message: plugin.isEnabled ?
+              `Plugin ${plugin.name} activated successfully` :
+              `Plugin ${plugin.name} deactivated successfully`,
             style: 'success'
           })
 

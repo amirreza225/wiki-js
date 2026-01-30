@@ -5,8 +5,6 @@ const { ApolloServer } = require('apollo-server-express')
 const Promise = require('bluebird')
 const _ = require('lodash')
 
-/* global WIKI */
-
 module.exports = {
   servers: {
     graph: null,

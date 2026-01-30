@@ -6,3 +6,4 @@ coverage/**
 repo/**
 data/**
 logs/**
+plugins/cache/**

@@ -1,7 +1,5 @@
 const bcrypt = require('bcryptjs-then')
 
-/* global WIKI */
-
 // ------------------------------------
 // Local Account
 // ------------------------------------

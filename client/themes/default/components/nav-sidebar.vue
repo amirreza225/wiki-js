@@ -72,8 +72,6 @@ import _ from 'lodash'
 import gql from 'graphql-tag'
 import { get } from 'vuex-pathify'
 
-/* global siteLangs */
-
 export default {
   props: {
     color: {

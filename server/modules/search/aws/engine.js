@@ -3,8 +3,6 @@ const AWS = require('aws-sdk')
 const { pipeline } = require('node:stream/promises')
 const { Transform } = require('node:stream')
 
-/* global WIKI */
-
 module.exports = {
   async activate() {
     // not used

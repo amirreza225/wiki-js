@@ -4,8 +4,6 @@ const semver = require('semver')
 
 const baseMigrationPath = path.join(WIKI.SERVERPATH, (WIKI.config.db.type !== 'sqlite') ? 'db/migrations' : 'db/migrations-sqlite')
 
-/* global WIKI */
-
 module.exports = {
   /**
    * Gets the migration names

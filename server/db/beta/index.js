@@ -3,8 +3,6 @@ const path = require('path')
 const fs = require('fs-extra')
 const semver = require('semver')
 
-/* global WIKI */
-
 module.exports = {
   async migrate (knex) {
     const migrationsTableExists = await knex.schema.hasTable('migrations')

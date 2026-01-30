@@ -2,7 +2,6 @@ const Model = require('objection').Model
 const fs = require('fs-extra')
 const path = require('path')
 const yaml = require('js-yaml')
-const _ = require('lodash')
 
 /**
  * Plugins model
@@ -83,12 +82,12 @@ module.exports = class Plugin extends Model {
         if (existingIds.has(manifest.id)) {
           // Update existing plugin metadata (but preserve user config and enabled state)
           // Convert string author/repository to objects for JSON columns
-          const authorJson = manifest.author
-            ? (typeof manifest.author === 'string' ? { name: manifest.author } : manifest.author)
-            : null
-          const repositoryJson = manifest.repository
-            ? (typeof manifest.repository === 'string' ? { url: manifest.repository } : manifest.repository)
-            : null
+          const authorJson = manifest.author ?
+            (typeof manifest.author === 'string' ? { name: manifest.author } : manifest.author) :
+            null
+          const repositoryJson = manifest.repository ?
+            (typeof manifest.repository === 'string' ? { url: manifest.repository } : manifest.repository) :
+            null
 
           await WIKI.models.plugins.query()
             .patch({
@@ -111,12 +110,12 @@ module.exports = class Plugin extends Model {
         } else {
           // Insert new plugin (disabled by default)
           // Convert string author/repository to objects for JSON columns
-          const authorJson = manifest.author
-            ? (typeof manifest.author === 'string' ? { name: manifest.author } : manifest.author)
-            : null
-          const repositoryJson = manifest.repository
-            ? (typeof manifest.repository === 'string' ? { url: manifest.repository } : manifest.repository)
-            : null
+          const authorJson = manifest.author ?
+            (typeof manifest.author === 'string' ? { name: manifest.author } : manifest.author) :
+            null
+          const repositoryJson = manifest.repository ?
+            (typeof manifest.repository === 'string' ? { url: manifest.repository } : manifest.repository) :
+            null
 
           await WIKI.models.plugins.query().insert({
             id: manifest.id,

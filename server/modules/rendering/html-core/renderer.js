@@ -6,8 +6,6 @@ const URL = require('url').URL
 
 const mustacheRegExp = /(\{|&#x7b;?){2}(.+?)(\}|&#x7d;?){2}/i
 
-/* global WIKI */
-
 module.exports = {
   async render() {
     let $ = cheerio.load(this.input, {

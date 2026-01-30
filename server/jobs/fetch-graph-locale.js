@@ -1,8 +1,6 @@
 const _ = require('lodash')
 const { createApolloFetch } = require('apollo-fetch')
 
-/* global WIKI */
-
 module.exports = async (localeCode) => {
   WIKI.logger.info(`Fetching locale ${localeCode} from Graph endpoint...`)
 

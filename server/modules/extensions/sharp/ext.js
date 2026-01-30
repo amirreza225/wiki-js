@@ -2,8 +2,6 @@ const fs = require('fs-extra')
 const os = require('os')
 const path = require('path')
 
-/* global WIKI */
-
 module.exports = {
   key: 'sharp',
   title: 'Sharp',

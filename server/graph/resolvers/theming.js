@@ -2,8 +2,6 @@ const graphHelper = require('../../helpers/graph')
 const _ = require('lodash')
 const CleanCSS = require('clean-css')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async theming() { return {} }

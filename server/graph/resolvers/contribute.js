@@ -1,8 +1,6 @@
 const request = require('request-promise')
 const _ = require('lodash')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async contribute() { return {} }

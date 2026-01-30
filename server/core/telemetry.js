@@ -4,8 +4,6 @@ const { v4: uuid } = require('uuid')
 const os = require('os')
 const fs = require('fs-extra')
 
-/* global WIKI */
-
 module.exports = {
   enabled: false,
   init() {

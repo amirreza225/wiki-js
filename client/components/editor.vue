@@ -74,8 +74,6 @@ import { StatusIndicator } from 'vue-status-indicator'
 
 import editorStore from '../store/editor'
 
-/* global WIKI */
-
 WIKI.$store.registerModule('editor', editorStore)
 
 export default {

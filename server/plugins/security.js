@@ -1,5 +1,3 @@
-const _ = require('lodash')
-
 /**
  * Plugin Security Module
  * Defines and validates permissions for the plugin system

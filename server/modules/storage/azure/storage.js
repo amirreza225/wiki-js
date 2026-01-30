@@ -4,8 +4,6 @@ const { Transform } = require('node:stream')
 const pageHelper = require('../../../helpers/page.js')
 const _ = require('lodash')
 
-/* global WIKI */
-
 const getFilePath = (page, pathKey) => {
   const fileName = `${page[pathKey]}.${pageHelper.getFileExtension(page.contentType)}`
   const withLocaleCode = WIKI.config.lang.namespacing && WIKI.config.lang.code !== page.localeCode

@@ -1,8 +1,6 @@
 const _ = require('lodash')
 const graphHelper = require('../../helpers/graph')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async pages() { return {} }
@@ -51,17 +49,51 @@ module.exports = {
      */
     async search (obj, args, context) {
       if (WIKI.data.searchEngine) {
-        const resp = await WIKI.data.searchEngine.query(args.query, args)
-        return {
-          ...resp,
-          results: _.filter(resp.results, r => {
-            return WIKI.auth.checkAccess(context.req.user, ['read:pages'], {
-              path: r.path,
-              locale: r.locale,
-              tags: r.tags // Tags are needed since access permissions can be limited by page tags too
-            })
-          })
+        // -> Trigger search:query hook
+        let queryData = {
+          query: args.query,
+          locale: args.locale,
+          path: args.path,
+          semanticVector: null
         }
+        if (WIKI.plugins && WIKI.plugins.hooks) {
+          try {
+            queryData = await WIKI.plugins.hooks.triggerMutable('search:query', queryData)
+          } catch (hookErr) {
+            WIKI.logger.warn(`Hook execution error (search:query): ${hookErr.message}`)
+          }
+        }
+
+        const resp = await WIKI.data.searchEngine.query(queryData.query, { ...args, ...queryData })
+
+        const filteredResults = _.filter(resp.results, r => {
+          return WIKI.auth.checkAccess(context.req.user, ['read:pages'], {
+            path: r.path,
+            locale: r.locale,
+            tags: r.tags // Tags are needed since access permissions can be limited by page tags too
+          })
+        })
+
+        const searchResult = {
+          ...resp,
+          results: filteredResults
+        }
+
+        // -> Trigger search:results hook
+        if (WIKI.plugins && WIKI.plugins.hooks) {
+          try {
+            await WIKI.plugins.hooks.trigger('search:results', {
+              query: queryData.query,
+              results: filteredResults,
+              totalHits: resp.totalHits,
+              relevanceScores: filteredResults.map(r => r.score || 0)
+            })
+          } catch (hookErr) {
+            WIKI.logger.warn(`Hook execution error (search:results): ${hookErr.message}`)
+          }
+        }
+
+        return searchResult
       } else {
         return {
           results: [],
@@ -173,8 +205,8 @@ module.exports = {
     async singleByPath(obj, args, context, info) {
       let page = await WIKI.models.pages.getPageFromDb({
         path: args.path,
-        locale: args.locale,
-      });
+        locale: args.locale
+      })
       if (page) {
         if (WIKI.auth.checkAccess(context.req.user, ['manage:pages', 'delete:pages'], {
           path: page.path,

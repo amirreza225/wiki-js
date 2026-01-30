@@ -5,7 +5,7 @@
  */
 
 const security = require('../../plugins/security')
-const { createTestManifest, createMockWIKI } = require('../helpers/plugin-test-utils')
+const { createMockWIKI } = require('../helpers/plugin-test-utils')
 
 // Setup global WIKI
 global.WIKI = createMockWIKI()

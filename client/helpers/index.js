@@ -1,8 +1,6 @@
 import filesize from 'filesize.js'
 import _ from 'lodash'
 
-/* global siteConfig */
-
 const helpers = {
   /**
    * Convert bytes to humanized form

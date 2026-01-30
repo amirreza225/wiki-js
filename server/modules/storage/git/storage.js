@@ -11,8 +11,6 @@ const pageHelper = require('../../../helpers/page')
 const assetHelper = require('../../../helpers/asset')
 const commonDisk = require('../disk/common')
 
-/* global WIKI */
-
 module.exports = {
   git: null,
   repoPath: path.resolve(WIKI.ROOTPATH, WIKI.config.dataPath, 'repo'),

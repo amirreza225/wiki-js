@@ -1,0 +1,72 @@
+# ===============================================
+# IMPORT / EXPORT
+# ===============================================
+
+extend type Query {
+  import: ImportQuery
+}
+
+extend type Mutation {
+  import: ImportMutation
+}
+
+# -----------------------------------------------
+# QUERIES
+# -----------------------------------------------
+
+type ImportQuery {
+  _: Boolean
+}
+
+# -----------------------------------------------
+# MUTATIONS
+# -----------------------------------------------
+
+type ImportMutation {
+  importFromConfluence(
+    url: String!
+    spaceKey: String!
+    username: String
+    password: String
+    token: String
+    locale: String
+    pathPrefix: String
+  ): ImportResponse
+
+  exportToConfluence(
+    url: String!
+    spaceKey: String!
+    pageIds: [Int]!
+    username: String
+    password: String
+    token: String
+  ): ExportResponse
+}
+
+# -----------------------------------------------
+# TYPES
+# -----------------------------------------------
+
+type ImportResponse {
+  responseResult: ResponseStatus!
+  success: Boolean!
+  pagesImported: Int!
+  errors: [ImportError]
+}
+
+type ExportResponse {
+  responseResult: ResponseStatus!
+  success: Boolean!
+  pagesExported: Int!
+  errors: [ExportError]
+}
+
+type ImportError {
+  page: String!
+  message: String!
+}
+
+type ExportError {
+  page: String!
+  message: String!
+}

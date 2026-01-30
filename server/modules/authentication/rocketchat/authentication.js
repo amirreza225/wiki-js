@@ -1,7 +1,5 @@
 const _ = require('lodash')
 
-/* global WIKI */
-
 // ------------------------------------
 // Rocket.chat Account
 // ------------------------------------

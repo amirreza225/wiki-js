@@ -281,8 +281,6 @@ import groupsQuery from 'gql/admin/users/users-query-groups.gql'
 
 import draggable from 'vuedraggable'
 
-/* global siteConfig, siteLangs */
-
 export default {
   components: {
     draggable

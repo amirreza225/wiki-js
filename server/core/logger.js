@@ -1,8 +1,6 @@
 // const _ = require('lodash')
 const winston = require('winston')
 
-/* global WIKI */
-
 module.exports = {
   loggers: {},
   init(uid) {

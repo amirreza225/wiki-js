@@ -1,7 +1,5 @@
 const _ = require('lodash')
 
-/* global WIKI */
-
 module.exports = async (pageId) => {
   WIKI.logger.info(`Rebuilding page tree...`)
 

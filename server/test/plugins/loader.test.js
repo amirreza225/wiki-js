@@ -77,7 +77,6 @@ describe('plugins/loader', () => {
         await expect(loader.validateManifest(manifest))
           .rejects.toThrow(/Invalid plugin manifest/)
       })
-
     })
 
     describe('ID Validation', () => {
@@ -261,7 +260,7 @@ describe('plugins/loader', () => {
       const manifest = createTestManifest()
       fs.pathExists
         .mockResolvedValueOnce(false) // plugin.yml not found
-        .mockResolvedValueOnce(true)  // plugin.json found
+        .mockResolvedValueOnce(true) // plugin.json found
       fs.readFile.mockResolvedValue(JSON.stringify(manifest))
 
       const result = await loader.loadManifest(testPluginPath)
@@ -313,7 +312,7 @@ describe('plugins/loader', () => {
       fs.ensureDir.mockResolvedValue(undefined)
       fs.pathExists
         .mockResolvedValueOnce(false) // Plugin doesn't exist yet (checking installed path)
-        .mockResolvedValueOnce(true)  // plugin.yml exists in extracted folder
+        .mockResolvedValueOnce(true) // plugin.yml exists in extracted folder
       fs.readFile.mockResolvedValue('id: test-plugin\nversion: 1.0.0')
       yaml.load.mockReturnValue(manifest)
 

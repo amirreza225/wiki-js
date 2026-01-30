@@ -1,4 +1,3 @@
-/* global WIKI */
 
 exports.up = knex => {
   const dbCompat = {

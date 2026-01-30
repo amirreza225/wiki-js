@@ -1,0 +1,38 @@
+id: example-hooks-demo
+version: 1.0.0
+name: Example Hooks Demo
+description: Demonstrates the new Phase 1 hook system capabilities
+author: Wiki.js Team
+compatibility:
+  wikijs: ^2.6.0
+
+permissions:
+  - core:read
+  - database:write
+
+hooks:
+  - page:validate
+  - page:create
+  - page:update
+  - search:beforeIndex
+  - auth:beforeLogin
+  - auth:afterLogin
+
+config:
+  schema:
+    enabled:
+      type: boolean
+      title: Enable Plugin
+      default: true
+      order: 1
+    minContentLength:
+      type: number
+      title: Minimum Content Length
+      hint: Minimum number of characters required for page content
+      default: 50
+      order: 2
+    logAuthentication:
+      type: boolean
+      title: Log Authentication Events
+      default: false
+      order: 3

@@ -159,8 +159,6 @@ import statsQuery from 'gql/admin/dashboard/dashboard-query-stats.gql'
 
 import adminStore from '../store/admin'
 
-/* global WIKI */
-
 WIKI.$store.registerModule('admin', adminStore)
 
 const router = new VueRouter({

@@ -1,8 +1,6 @@
 const _ = require('lodash')
 const cheerio = require('cheerio')
 
-/* global WIKI */
-
 module.exports = async (pageId) => {
   WIKI.logger.info(`Rendering page ID ${pageId}...`)
 

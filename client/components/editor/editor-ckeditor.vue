@@ -22,8 +22,6 @@ import DecoupledEditor from '@requarks/ckeditor5'
 import EditorConflict from './ckeditor/conflict.vue'
 import { html as beautify } from 'js-beautify/js/lib/beautifier.min.js'
 
-/* global siteLangs */
-
 export default {
   components: {
     EditorConflict

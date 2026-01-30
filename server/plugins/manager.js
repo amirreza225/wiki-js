@@ -88,7 +88,7 @@ module.exports = {
       await this.runMigrations(pluginId, installPath)
 
       // Insert into database
-      const plugin = await WIKI.models.plugins.query().insert({
+      await WIKI.models.plugins.query().insert({
         id: pluginId,
         name: manifest.name,
         version: manifest.version,
@@ -100,7 +100,7 @@ module.exports = {
         keywords: manifest.keywords || [],
         compatibility: manifest.compatibility || null,
         config: manifest.config || null,
-        manifest: manifest,  // Store full manifest for client-side use
+        manifest: manifest, // Store full manifest for client-side use
         permissions: manifest.permissions || [],
         isEnabled: false,
         isInstalled: true,
@@ -180,9 +180,9 @@ module.exports = {
         .patch({
           isEnabled: true,
           status: hasGraphQL ? 'inactive' : 'active',
-          state: hasGraphQL
-            ? { status: 'pending_restart', message: 'Server restart required to activate GraphQL extensions' }
-            : { status: 'active', message: 'Plugin activated successfully' },
+          state: hasGraphQL ?
+            { status: 'pending_restart', message: 'Server restart required to activate GraphQL extensions' } :
+            { status: 'active', message: 'Plugin activated successfully' },
           activatedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         })
@@ -290,9 +290,9 @@ module.exports = {
         .patch({
           isEnabled: false,
           status: 'inactive',
-          state: hasGraphQL
-            ? { status: 'pending_restart', message: 'Server restart required to remove GraphQL extensions' }
-            : { status: 'inactive', message: 'Plugin deactivated successfully' },
+          state: hasGraphQL ?
+            { status: 'pending_restart', message: 'Server restart required to remove GraphQL extensions' } :
+            { status: 'inactive', message: 'Plugin deactivated successfully' },
           updatedAt: new Date().toISOString()
         })
         .where('id', pluginId)
@@ -482,7 +482,6 @@ module.exports = {
       }
 
       return { valid: true }
-
     } catch (err) {
       return { valid: true, warning: `Could not validate bundle: ${err.message}` }
     }
@@ -598,7 +597,6 @@ module.exports = {
         registered: 1,
         routes: [{ basePath: fullPath }]
       }
-
     } catch (err) {
       WIKI.logger.error(`[PLUGIN ${plugin.id}] Failed to load API routes: ${err.message}`)
       WIKI.logger.error(`[PLUGIN ${plugin.id}] Stack trace:`, err.stack)

@@ -264,8 +264,6 @@ import _ from 'lodash'
 
 import movePageMutation from 'gql/common/common-pages-mutation-move.gql'
 
-/* global siteConfig, siteLangs */
-
 export default {
   components: {
     PageDelete: () => import('./page-delete.vue'),

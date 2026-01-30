@@ -1,8 +1,6 @@
 const _ = require('lodash')
 const { createApolloFetch } = require('apollo-fetch')
 
-/* global WIKI */
-
 module.exports = async () => {
   WIKI.logger.info(`Fetching latest updates from Graph endpoint...`)
 

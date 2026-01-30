@@ -13,8 +13,6 @@ const semver = require('semver')
 
 const randomBytesAsync = require('util').promisify(crypto.randomBytes)
 
-/* global WIKI */
-
 module.exports = () => {
   WIKI.config.site = {
     path: '',

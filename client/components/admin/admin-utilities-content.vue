@@ -98,8 +98,6 @@ import utilityContentRebuildTreeMutation from 'gql/admin/utilities/utilities-mut
 
 import { SemipolarSpinner } from 'epic-spinners'
 
-/* global siteLangs, siteConfig */
-
 export default {
   components: {
     SemipolarSpinner

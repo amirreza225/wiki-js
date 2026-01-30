@@ -8,8 +8,6 @@ const _ = require('lodash')
 
 const pageHelper = require('../../../helpers/page.js')
 
-/* global WIKI */
-
 module.exports = {
   assetFolders: null,
   async importFromDisk ({ fullPath, moduleName }) {

@@ -6,8 +6,6 @@ const yaml = require('js-yaml')
 const DepGraph = require('dependency-graph').DepGraph
 const commonHelper = require('../helpers/common')
 
-/* global WIKI */
-
 /**
  * Renderer model
  */

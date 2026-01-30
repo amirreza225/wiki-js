@@ -2,8 +2,6 @@ const fs = require('fs-extra')
 const { JSDOM } = require('jsdom')
 const createDOMPurify = require('dompurify')
 
-/* global WIKI */
-
 module.exports = async (svgPath) => {
   WIKI.logger.info(`Sanitizing SVG file upload...`)
 

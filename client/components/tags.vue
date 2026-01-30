@@ -158,8 +158,6 @@ import _ from 'lodash'
 import tagsQuery from 'gql/common/common-pages-query-tags.gql'
 import pagesQuery from 'gql/common/common-pages-query-list.gql'
 
-/* global siteLangs */
-
 const router = new VueRouter({
   mode: 'history',
   base: '/t'

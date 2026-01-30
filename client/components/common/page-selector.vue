@@ -105,8 +105,6 @@ import gql from 'graphql-tag'
 
 const localeSegmentRegex = /^[A-Z]{2}(-[A-Z]{2})?$/i
 
-/* global siteLangs, siteConfig */
-
 export default {
   props: {
     value: {

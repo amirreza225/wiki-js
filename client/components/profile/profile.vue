@@ -353,8 +353,6 @@ import validate from 'validate.js'
 
 import PasswordStrength from '../common/password-strength.vue'
 
-/* global WIKI, siteConfig */
-
 export default {
   i18nOptions: {
     namespaces: ['profile', 'auth']

@@ -10,8 +10,6 @@ const favicon = require('serve-favicon')
 const path = require('path')
 const _ = require('lodash')
 
-/* global WIKI */
-
 module.exports = async () => {
   // ----------------------------------------
   // Load core modules

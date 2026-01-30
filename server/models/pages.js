@@ -13,8 +13,6 @@ const TurndownService = require('turndown')
 const turndownPluginGfm = require('@joplin/turndown-plugin-gfm').gfm
 const cheerio = require('cheerio')
 
-/* global WIKI */
-
 const frontmatterRegex = {
   html: /^(<!-{2}(?:\n|\r)([\w\W]+?)(?:\n|\r)-{2}>)?(?:\n|\r)*([\w\W]*)*/,
   legacy: /^(<!-- TITLE: ?([\w\W]+?) ?-{2}>)?(?:\n|\r)?(<!-- SUBTITLE: ?([\w\W]+?) ?-{2}>)?(?:\n|\r)*([\w\W]*)*/i,
@@ -295,6 +293,32 @@ module.exports = class Page extends Model {
       scriptJs = opts.scriptJs || ''
     }
 
+    // -> Trigger page:validate hook (blocking)
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.triggerBlocking('page:validate', {
+          page: {
+            path: opts.path,
+            locale: opts.locale,
+            title: opts.title,
+            description: opts.description,
+            content: opts.content,
+            isPublished: opts.isPublished,
+            isPrivate: opts.isPrivate
+          },
+          user: {
+            id: opts.user.id,
+            name: opts.user.name,
+            email: opts.user.email
+          },
+          validationErrors: [],
+          canProceed: true
+        })
+      } catch (err) {
+        throw new Error(`Page validation failed: ${err.message}`)
+      }
+    }
+
     // -> Create page
     await WIKI.models.pages.query().insert({
       authorId: opts.user.id,
@@ -324,32 +348,40 @@ module.exports = class Page extends Model {
       isPrivate: opts.isPrivate
     })
 
-    // -> Trigger page:save hook
+    // -> Trigger page:create hook (and page:save for backward compatibility)
     if (WIKI.plugins && WIKI.plugins.hooks) {
+      const hookData = {
+        page: {
+          id: page.id,
+          path: page.path,
+          title: page.title,
+          description: page.description,
+          content: page.content,
+          contentType: page.contentType,
+          isPublished: page.isPublished,
+          isPrivate: page.isPrivate,
+          localeCode: page.localeCode,
+          authorId: page.authorId,
+          createdAt: page.createdAt,
+          updatedAt: page.updatedAt
+        },
+        user: {
+          id: opts.user.id,
+          name: opts.user.name,
+          email: opts.user.email,
+          isAdmin: opts.user.groups && opts.user.groups.some(g => g.id === 1)
+        }
+      }
+
       try {
-        await WIKI.plugins.hooks.trigger('page:save', {
-          page: {
-            id: page.id,
-            path: page.path,
-            title: page.title,
-            description: page.description,
-            content: page.content,
-            contentType: page.contentType,
-            isPublished: page.isPublished,
-            isPrivate: page.isPrivate,
-            localeCode: page.localeCode,
-            authorId: page.authorId,
-            createdAt: page.createdAt,
-            updatedAt: page.updatedAt
-          },
-          user: {
-            id: opts.user.id,
-            name: opts.user.name,
-            email: opts.user.email,
-            isAdmin: opts.user.groups && opts.user.groups.some(g => g.id === 1)
-          },
-          isNew: true
-        })
+        await WIKI.plugins.hooks.trigger('page:create', hookData)
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (page:create): ${hookErr.message}`)
+      }
+
+      // Backward compatibility - also trigger page:save
+      try {
+        await WIKI.plugins.hooks.trigger('page:save', { ...hookData, isNew: true })
       } catch (hookErr) {
         WIKI.logger.warn(`Hook execution error (page:save): ${hookErr.message}`)
       }
@@ -369,7 +401,45 @@ module.exports = class Page extends Model {
     // -> Add to Search Index
     const pageContents = await WIKI.models.pages.query().findById(page.id).select('render')
     page.safeContent = WIKI.models.pages.cleanHTML(pageContents.render)
+
+    // -> Trigger search:beforeIndex hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('search:beforeIndex', {
+          page: {
+            id: page.id,
+            path: page.path,
+            title: page.title,
+            description: page.description,
+            content: page.content,
+            safeContent: page.safeContent,
+            localeCode: page.localeCode
+          },
+          embeddings: null
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (search:beforeIndex): ${hookErr.message}`)
+      }
+    }
+
     await WIKI.data.searchEngine.created(page)
+
+    // -> Trigger search:indexed hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('search:indexed', {
+          page: {
+            id: page.id,
+            path: page.path,
+            title: page.title,
+            localeCode: page.localeCode
+          },
+          indexed: true
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (search:indexed): ${hookErr.message}`)
+      }
+    }
 
     // -> Add to Storage
     if (!opts.skipStorage) {
@@ -453,6 +523,38 @@ module.exports = class Page extends Model {
       scriptJs = opts.scriptJs || ''
     }
 
+    // -> Trigger page:validate hook (blocking)
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.triggerBlocking('page:validate', {
+          page: {
+            id: opts.id,
+            path: ogPage.path,
+            locale: ogPage.localeCode,
+            title: opts.title || ogPage.title,
+            description: opts.description,
+            content: opts.content,
+            isPublished: opts.isPublished !== undefined ? opts.isPublished : ogPage.isPublished,
+            isPrivate: ogPage.isPrivate
+          },
+          originalPage: {
+            id: ogPage.id,
+            content: ogPage.content,
+            updatedAt: ogPage.updatedAt
+          },
+          user: {
+            id: opts.user.id,
+            name: opts.user.name,
+            email: opts.user.email
+          },
+          validationErrors: [],
+          canProceed: true
+        })
+      } catch (err) {
+        throw new Error(`Page validation failed: ${err.message}`)
+      }
+    }
+
     // -> Update page
     await WIKI.models.pages.query().patch({
       authorId: opts.user.id,
@@ -470,32 +572,44 @@ module.exports = class Page extends Model {
     }).where('id', ogPage.id)
     let page = await WIKI.models.pages.getPageFromDb(ogPage.id)
 
-    // -> Trigger page:save hook
+    // -> Trigger page:update hook (and page:save for backward compatibility)
     if (WIKI.plugins && WIKI.plugins.hooks) {
+      const hookData = {
+        page: {
+          id: page.id,
+          path: page.path,
+          title: page.title,
+          description: page.description,
+          content: page.content,
+          contentType: page.contentType,
+          isPublished: page.isPublished,
+          isPrivate: page.isPrivate,
+          localeCode: page.localeCode,
+          authorId: page.authorId,
+          createdAt: page.createdAt,
+          updatedAt: page.updatedAt
+        },
+        user: {
+          id: opts.user.id,
+          name: opts.user.name,
+          email: opts.user.email,
+          isAdmin: opts.user.groups && opts.user.groups.some(g => g.id === 1)
+        },
+        previousVersion: {
+          content: ogPage.content,
+          updatedAt: ogPage.updatedAt
+        }
+      }
+
       try {
-        await WIKI.plugins.hooks.trigger('page:save', {
-          page: {
-            id: page.id,
-            path: page.path,
-            title: page.title,
-            description: page.description,
-            content: page.content,
-            contentType: page.contentType,
-            isPublished: page.isPublished,
-            isPrivate: page.isPrivate,
-            localeCode: page.localeCode,
-            authorId: page.authorId,
-            createdAt: page.createdAt,
-            updatedAt: page.updatedAt
-          },
-          user: {
-            id: opts.user.id,
-            name: opts.user.name,
-            email: opts.user.email,
-            isAdmin: opts.user.groups && opts.user.groups.some(g => g.id === 1)
-          },
-          isNew: false
-        })
+        await WIKI.plugins.hooks.trigger('page:update', hookData)
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (page:update): ${hookErr.message}`)
+      }
+
+      // Backward compatibility - also trigger page:save
+      try {
+        await WIKI.plugins.hooks.trigger('page:save', { ...hookData, isNew: false })
       } catch (hookErr) {
         WIKI.logger.warn(`Hook execution error (page:save): ${hookErr.message}`)
       }
@@ -511,7 +625,45 @@ module.exports = class Page extends Model {
     // -> Update Search Index
     const pageContents = await WIKI.models.pages.query().findById(page.id).select('render')
     page.safeContent = WIKI.models.pages.cleanHTML(pageContents.render)
+
+    // -> Trigger search:beforeIndex hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('search:beforeIndex', {
+          page: {
+            id: page.id,
+            path: page.path,
+            title: page.title,
+            description: page.description,
+            content: page.content,
+            safeContent: page.safeContent,
+            localeCode: page.localeCode
+          },
+          embeddings: null
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (search:beforeIndex): ${hookErr.message}`)
+      }
+    }
+
     await WIKI.data.searchEngine.updated(page)
+
+    // -> Trigger search:indexed hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('search:indexed', {
+          page: {
+            id: page.id,
+            path: page.path,
+            title: page.title,
+            localeCode: page.localeCode
+          },
+          indexed: true
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (search:indexed): ${hookErr.message}`)
+      }
+    }
 
     // -> Update on Storage
     if (!opts.skipStorage) {

@@ -1,4 +1,3 @@
-/* global WIKI */
 
 // ------------------------------------
 // Google ID Account
@@ -17,7 +16,7 @@ module.exports = {
     }, async (req, accessToken, refreshToken, profile, cb) => {
       try {
         WIKI.logger.info(`Google OAuth: Processing profile for user ${profile.id || profile.displayName}`)
-        
+
         // Validate hosted domain if configured
         if (conf.hostedDomain && profile._json.hd !== conf.hostedDomain) {
           throw new Error(`Google authentication failed: User must be from domain ${conf.hostedDomain}, but got ${profile._json.hd || 'unknown'}`)
@@ -30,7 +29,7 @@ module.exports = {
             picture: _.get(profile, 'photos[0].value', '')
           }
         })
-        
+
         WIKI.logger.info(`Google OAuth: Successfully authenticated user ${user.email}`)
         cb(null, user)
       } catch (err) {

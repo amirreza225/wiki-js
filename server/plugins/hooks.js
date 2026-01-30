@@ -30,6 +30,7 @@ class PluginHooks extends EventEmitter2 {
       return []
     }
 
+    const startTime = Date.now()
     WIKI.logger.debug(`[Plugin Hooks] Triggering hook ${hookName} for ${listeners.length} listeners`)
 
     const results = []
@@ -46,7 +47,74 @@ class PluginHooks extends EventEmitter2 {
       }
     }
 
+    const duration = Date.now() - startTime
+    WIKI.logger.debug(`[Plugin Hooks] ${hookName} completed in ${duration}ms`)
+
+    if (duration > 1000) {
+      WIKI.logger.warn(`[Plugin Hooks] Slow hook execution: ${hookName} took ${duration}ms`)
+    }
+
     return results
+  }
+
+  /**
+   * Trigger hook with mutation support
+   * Allows handlers to modify data and return updated version
+   * @param {string} hookName - Hook identifier
+   * @param {Object} data - Data to pass and potentially modify
+   * @returns {Object} Modified data object
+   */
+  async triggerMutable(hookName, data) {
+    const listeners = this.listeners(hookName)
+
+    if (listeners.length === 0) {
+      return data
+    }
+
+    const startTime = Date.now()
+    WIKI.logger.debug(`[Plugin Hooks] Triggering mutable hook ${hookName} for ${listeners.length} listeners`)
+
+    let mutableData = { ...data }
+
+    for (const listener of listeners) {
+      try {
+        const result = await listener(mutableData)
+        if (result && typeof result === 'object') {
+          mutableData = { ...mutableData, ...result }
+        }
+      } catch (err) {
+        WIKI.logger.error(`[Plugin Hooks] Error in hook ${hookName}: ${err.message}`)
+        mutableData.errors = mutableData.errors || []
+        mutableData.errors.push(err.message)
+      }
+    }
+
+    const duration = Date.now() - startTime
+    WIKI.logger.debug(`[Plugin Hooks] ${hookName} completed in ${duration}ms`)
+
+    if (duration > 1000) {
+      WIKI.logger.warn(`[Plugin Hooks] Slow hook execution: ${hookName} took ${duration}ms`)
+    }
+
+    return mutableData
+  }
+
+  /**
+   * Trigger hook with blocking support
+   * Can prevent operation from continuing if canProceed is false
+   * @param {string} hookName - Hook identifier
+   * @param {Object} data - Data to pass (must have canProceed field)
+   * @returns {Object} Modified data object
+   * @throws {Error} If canProceed is false
+   */
+  async triggerBlocking(hookName, data) {
+    const result = await this.triggerMutable(hookName, data)
+
+    if (result.canProceed === false) {
+      throw new Error(result.blockReason || 'Operation blocked by plugin')
+    }
+
+    return result
   }
 
   /**
@@ -57,9 +125,51 @@ class PluginHooks extends EventEmitter2 {
     const path = require('path')
     const fs = require('fs-extra')
 
-    // Get hooks from manifest (array format)
+    // Clear any existing hooks for this plugin
+    this.unregisterPluginHooks(plugin.id)
+
+    const hookHandlers = []
+    const runtime = require('./runtime')
+
+    // Handle hooks object (for tests and direct registration)
+    if (plugin.instance && plugin.instance.hooks && typeof plugin.instance.hooks === 'object' && !Array.isArray(plugin.instance.hooks)) {
+      const hooksObj = plugin.instance.hooks
+
+      for (const [hookName, handler] of Object.entries(hooksObj)) {
+        if (typeof handler !== 'function') {
+          WIKI.logger.warn(`[Plugin Hooks] Invalid hook handler for ${hookName} in plugin ${plugin.id}: must be a function`)
+          continue
+        }
+
+        // Create plugin context for hook execution
+        const context = runtime.createContext(plugin)
+
+        // Wrap handler with error handling
+        const wrappedHandler = async (data) => {
+          try {
+            // Bind context as 'this' when calling the handler
+            return await handler.call(context, data)
+          } catch (err) {
+            WIKI.logger.error(`[Plugin Hooks] Error executing hook ${hookName} for plugin ${plugin.id}: ${err.message}`)
+            throw err
+          }
+        }
+
+        // Register listener
+        this.on(hookName, wrappedHandler)
+        hookHandlers.push({ hookName, handler: wrappedHandler })
+
+        WIKI.logger.info(`[Plugin Hooks] Registered hook ${hookName} for plugin ${plugin.id}`)
+      }
+
+      // Store handlers for cleanup
+      this.registeredPlugins.set(plugin.id, hookHandlers)
+      return
+    }
+
+    // Get hooks from manifest (array format for file-based hooks)
     let hooksList = []
-    if (plugin.instance && plugin.instance.hooks) {
+    if (plugin.instance && Array.isArray(plugin.instance.hooks)) {
       hooksList = plugin.instance.hooks
     } else if (plugin.manifest && typeof plugin.manifest === 'string') {
       try {
@@ -77,13 +187,16 @@ class PluginHooks extends EventEmitter2 {
       return
     }
 
-    const runtime = require('./runtime')
+    // Check for deprecated hooks
+    if (hooksList.includes('page:save')) {
+      WIKI.logger.warn(
+        `[Plugin ${plugin.id}] Hook 'page:save' is deprecated. ` +
+        `Use 'page:create' and 'page:update' instead. ` +
+        `page:save will be removed in v3.0.0`
+      )
+    }
+
     const hooksPath = path.join(plugin.installPath, 'server', 'hooks')
-
-    // Clear any existing hooks for this plugin
-    this.unregisterPluginHooks(plugin.id)
-
-    const hookHandlers = []
 
     for (const hookName of hooksList) {
       // Convert hook name to camelCase filename (e.g., 'page:save' -> 'pageSave.js')

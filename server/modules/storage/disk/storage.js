@@ -10,8 +10,6 @@ const moment = require('moment')
 const pageHelper = require('../../../helpers/page')
 const commonDisk = require('./common')
 
-/* global WIKI */
-
 module.exports = {
   async activated() {
     // not used

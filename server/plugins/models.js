@@ -44,7 +44,7 @@ module.exports = class PluginModelLoader {
         const ModelClass = require(modelPath)
 
         // Validate it extends Objection Model
-        if (!ModelClass.prototype instanceof Model) {
+        if (!(ModelClass.prototype instanceof Model)) {
           WIKI.logger.warn(`Plugin ${pluginId} model ${modelName} does not extend Objection Model`)
           continue
         }

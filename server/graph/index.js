@@ -9,8 +9,6 @@ const Transport = require('winston-transport')
 const { createRateLimitTypeDef } = require('graphql-rate-limit-directive')
 // const { GraphQLUpload } = require('graphql-upload')
 
-/* global WIKI */
-
 WIKI.logger.info(`Loading GraphQL Schema...`)
 
 // Init Subscription PubSub

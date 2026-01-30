@@ -9,8 +9,6 @@ const Objection = require('objection')
 const migrationSource = require('../db/migrator-source')
 const migrateFromBeta = require('../db/beta')
 
-/* global WIKI */
-
 /**
  * ORM DB module
  */

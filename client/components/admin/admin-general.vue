@@ -267,8 +267,6 @@ import gql from 'graphql-tag'
 
 import editorStore from '../../store/editor'
 
-/* global WIKI */
-
 const titleRegex = /[<>"]/i
 
 WIKI.$store.registerModule('editor', editorStore)

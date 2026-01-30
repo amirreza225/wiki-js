@@ -5,8 +5,6 @@ const multer = require('multer')
 const path = require('path')
 const sanitize = require('sanitize-filename')
 
-/* global WIKI */
-
 /**
  * Upload files
  */

@@ -13,3 +13,12 @@ globals:
   document: false
   navigator: false
   window: false
+  WIKI: true
+  siteLangs: true
+  siteConfig: true
+  graphQL: true
+rules:
+  vue/custom-event-name-casing: off
+  vue/no-arrow-functions-in-watch: off
+  no-useless-escape: off
+  import/no-duplicates: off

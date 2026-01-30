@@ -1,7 +1,5 @@
 const Model = require('objection').Model
 
-/* global WIKI */
-
 /**
  * Locales model
  */

@@ -1,7 +1,5 @@
 const _ = require('lodash')
 
-/* global WIKI */
-
 exports.up = async knex => {
   let sqlVersionDate = ''
   switch (WIKI.config.db.type) {

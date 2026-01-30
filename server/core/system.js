@@ -7,8 +7,6 @@ const zlib = require('zlib')
 const { pipeline } = require('node:stream/promises')
 const { Readable, Transform } = require('node:stream')
 
-/* global WIKI */
-
 module.exports = {
   updates: {
     channel: 'BETA',

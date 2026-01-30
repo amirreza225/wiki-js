@@ -36,7 +36,7 @@ module.exports = {
      */
     async approvalRequest(obj, args, context) {
       const Approval = WIKI.plugins.modelLoader.getPluginModelsObject('approval-workflow').Approval
-      return await Approval.query().findById(args.id)
+      return Approval.query().findById(args.id)
     },
 
     /**

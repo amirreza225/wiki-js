@@ -1,8 +1,6 @@
 const graphHelper = require('../../helpers/graph')
 const _ = require('lodash')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async localization() { return {} }

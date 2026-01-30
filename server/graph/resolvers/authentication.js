@@ -3,8 +3,6 @@ const fs = require('fs-extra')
 const path = require('path')
 const graphHelper = require('../../helpers/graph')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async authentication () { return {} }

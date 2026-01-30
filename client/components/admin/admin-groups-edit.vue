@@ -101,8 +101,6 @@ import GroupPermissions from './admin-groups-edit-permissions.vue'
 import GroupRules from './admin-groups-edit-rules.vue'
 import GroupUsers from './admin-groups-edit-users.vue'
 
-/* global siteConfig */
-
 export default {
   components: {
     GroupPermissions,

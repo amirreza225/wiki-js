@@ -1,8 +1,6 @@
 const Model = require('objection').Model
 const _ = require('lodash')
 
-/* global WIKI */
-
 /**
  * Settings model
  */

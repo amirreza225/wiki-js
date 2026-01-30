@@ -5,8 +5,6 @@ import i18nextXHR from 'i18next-xhr-backend'
 import VueI18Next from '@panter/vue-i18next'
 import _ from 'lodash'
 
-/* global siteConfig, graphQL */
-
 import localeQuery from 'gql/common/common-localization-query-translations.gql'
 
 export default {

@@ -5,8 +5,6 @@ const _ = require('lodash')
 const yaml = require('js-yaml')
 const commonHelper = require('../helpers/common')
 
-/* global WIKI */
-
 /**
  * Authentication model
  */

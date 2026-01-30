@@ -119,9 +119,9 @@ module.exports = {
         const result = await WIKI.plugins.manager.activatePlugin(args.id)
         return {
           responseResult: graphHelper.generateSuccess(
-            result.requiresRestart
-              ? 'Plugin marked for activation. Server restart required.'
-              : 'Plugin activated successfully'
+            result.requiresRestart ?
+              'Plugin marked for activation. Server restart required.' :
+              'Plugin activated successfully'
           ),
           requiresRestart: result.requiresRestart
         }
@@ -141,9 +141,9 @@ module.exports = {
         const result = await WIKI.plugins.manager.deactivatePlugin(args.id)
         return {
           responseResult: graphHelper.generateSuccess(
-            result.requiresRestart
-              ? 'Plugin marked for deactivation. Server restart required.'
-              : 'Plugin deactivated successfully'
+            result.requiresRestart ?
+              'Plugin marked for deactivation. Server restart required.' :
+              'Plugin deactivated successfully'
           ),
           requiresRestart: result.requiresRestart
         }

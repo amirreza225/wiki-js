@@ -1,4 +1,3 @@
-/* global WIKI */
 
 module.exports = {
   activate() {

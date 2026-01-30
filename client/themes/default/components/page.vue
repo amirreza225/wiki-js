@@ -373,10 +373,7 @@ import Prism from 'prismjs'
 import mermaid from 'mermaid'
 import { get, sync } from 'vuex-pathify'
 import _ from 'lodash'
-import ClipboardJS from 'clipboard'
 import Vue from 'vue'
-
-/* global siteLangs */
 
 Vue.component('Tabset', Tabset)
 
@@ -778,7 +775,6 @@ export default {
 
         this.prismInitialized = true
         window._wikiPrismRegistered = true
-
       } catch (err) {
         // Silently handle duplicate registration (happens during HMR)
         if (err.message && err.message.includes('already registered')) {

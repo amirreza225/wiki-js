@@ -3,8 +3,6 @@ const safeRegex = require('safe-regex')
 const _ = require('lodash')
 const gql = require('graphql')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async groups () { return {} }

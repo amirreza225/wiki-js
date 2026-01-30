@@ -38,8 +38,6 @@ import _ from 'lodash'
 import * as d3 from 'd3'
 import gql from 'graphql-tag'
 
-/* global siteConfig, siteLangs */
-
 export default {
   data() {
     return {

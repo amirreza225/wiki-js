@@ -1,7 +1,6 @@
 require('core-js/stable')
 require('regenerator-runtime/runtime')
 
-/* global siteConfig */
 /* eslint-disable no-unused-expressions */
 
 switch (window.document.documentElement.lang) {

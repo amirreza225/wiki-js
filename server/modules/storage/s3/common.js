@@ -4,8 +4,6 @@ const { Transform } = require('node:stream')
 const _ = require('lodash')
 const pageHelper = require('../../../helpers/page.js')
 
-/* global WIKI */
-
 /**
  * Deduce the file path given the `page` object and the object's key to the page's path.
  */

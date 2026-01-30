@@ -7,8 +7,6 @@ const PEM = require('@root/pem')
 // eslint-disable-next-line node/no-deprecated-api
 const punycode = require('punycode')
 
-/* global WIKI */
-
 module.exports = {
   apiDirectory: WIKI.dev ? 'https://acme-staging-v02.api.letsencrypt.org/directory' : 'https://acme-v02.api.letsencrypt.org/directory',
   acme: null,

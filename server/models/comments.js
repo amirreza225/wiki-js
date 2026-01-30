@@ -2,8 +2,6 @@ const Model = require('objection').Model
 const validate = require('validate.js')
 const _ = require('lodash')
 
-/* global WIKI */
-
 /**
  * Comments model
  */

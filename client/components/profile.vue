@@ -34,8 +34,6 @@
 <script>
 import VueRouter from 'vue-router'
 
-/* global WIKI */
-
 const router = new VueRouter({
   mode: 'history',
   base: '/p',

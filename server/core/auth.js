@@ -11,8 +11,6 @@ const randomBytesAsync = require('util').promisify(crypto.randomBytes)
 const commonHelper = require('../helpers/common')
 const securityHelper = require('../helpers/security')
 
-/* global WIKI */
-
 module.exports = {
   strategies: {},
   guest: {

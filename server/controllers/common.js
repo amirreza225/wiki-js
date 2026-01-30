@@ -6,8 +6,6 @@ const CleanCSS = require('clean-css')
 const moment = require('moment')
 const qs = require('querystring')
 
-/* global WIKI */
-
 const tmplCreateRegex = /^[0-9]+(,[0-9]+)?$/
 
 /**

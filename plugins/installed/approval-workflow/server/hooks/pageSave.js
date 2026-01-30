@@ -61,9 +61,9 @@ module.exports = async function pageSaveHook(hookData, context) {
       requesterEmail: user.email,
       status: 'pending',
       isNew,
-      changeDescription: isNew
-        ? `New page created: ${page.title}`
-        : `Page updated: ${page.title}`
+      changeDescription: isNew ?
+        `New page created: ${page.title}` :
+        `Page updated: ${page.title}`
     })
 
     context.logger.info(`Created approval request #${approval.id} for page ${page.id} by ${user.name}`)

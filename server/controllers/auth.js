@@ -1,4 +1,3 @@
-/* global WIKI */
 
 const express = require('express')
 const ExpressBrute = require('express-brute')

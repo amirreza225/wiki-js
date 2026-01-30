@@ -123,9 +123,9 @@ export default class ClientPluginLoader {
   async initializePlugin(plugin, context) {
     try {
       // Parse manifest if it's a string
-      const pluginManifest = typeof plugin.manifest === 'string'
-        ? JSON.parse(plugin.manifest)
-        : (plugin.manifest || {})
+      const pluginManifest = typeof plugin.manifest === 'string' ?
+        JSON.parse(plugin.manifest) :
+        (plugin.manifest || {})
 
       // Check if plugin has client-side code
       if (!pluginManifest.hasClientCode) {

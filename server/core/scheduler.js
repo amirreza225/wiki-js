@@ -3,8 +3,6 @@ const childProcess = require('child_process')
 const _ = require('lodash')
 const configHelper = require('../helpers/config')
 
-/* global WIKI */
-
 class Job {
   constructor({
     name,

@@ -1,5 +1,4 @@
 const _ = require('lodash')
-/* global WIKI */
 
 // ------------------------------------
 // CAS Account

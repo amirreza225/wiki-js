@@ -5,8 +5,6 @@ const fs = require('fs')
 const path = require('path')
 const yaml = require('js-yaml')
 
-/* global WIKI */
-
 module.exports = {
   /**
    * Load root config from disk

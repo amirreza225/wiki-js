@@ -2,8 +2,6 @@ const fs = require('fs-extra')
 const path = require('path')
 const _ = require('lodash')
 
-/* global WIKI */
-
 module.exports = {
   async init () {
     if (!WIKI.config.offline) {

@@ -1,7 +1,5 @@
 const graphHelper = require('../../helpers/graph')
 
-/* global WIKI */
-
 module.exports = {
   Query: {
     async navigation () { return {} }

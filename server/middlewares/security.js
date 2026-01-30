@@ -1,4 +1,3 @@
-/* global WIKI */
 
 /**
  * Security Middleware

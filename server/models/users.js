@@ -1,4 +1,3 @@
-/* global WIKI */
 
 const bcrypt = require('bcryptjs-then')
 const _ = require('lodash')
@@ -332,14 +331,58 @@ module.exports = class User extends Model {
         _.set(context.req.params, 'strategy', opts.strategy)
       }
 
+      // -> Trigger auth:beforeLogin hook (blocking)
+      if (WIKI.plugins && WIKI.plugins.hooks) {
+        try {
+          await WIKI.plugins.hooks.triggerBlocking('auth:beforeLogin', {
+            username: opts.username,
+            strategy: opts.strategy,
+            ip: context.req.ip || context.req.connection.remoteAddress,
+            allow: true
+          })
+        } catch (hookErr) {
+          throw new Error(`Authentication blocked: ${hookErr.message}`)
+        }
+      }
+
       // Authenticate
       return new Promise((resolve, reject) => {
         WIKI.auth.passport.authenticate(selStrategy.key, {
           session: !strInfo.useForm,
           scope: strInfo.scopes ? strInfo.scopes : null
         }, async (err, user, info) => {
-          if (err) { return reject(err) }
-          if (!user) { return reject(new WIKI.Error.AuthLoginFailed()) }
+          if (err) {
+            // -> Trigger auth:loginFailed hook
+            if (WIKI.plugins && WIKI.plugins.hooks) {
+              try {
+                await WIKI.plugins.hooks.trigger('auth:loginFailed', {
+                  username: opts.username,
+                  strategy: opts.strategy,
+                  reason: err.message,
+                  ip: context.req.ip || context.req.connection.remoteAddress
+                })
+              } catch (hookErr) {
+                WIKI.logger.warn(`Hook execution error (auth:loginFailed): ${hookErr.message}`)
+              }
+            }
+            return reject(err)
+          }
+          if (!user) {
+            // -> Trigger auth:loginFailed hook
+            if (WIKI.plugins && WIKI.plugins.hooks) {
+              try {
+                await WIKI.plugins.hooks.trigger('auth:loginFailed', {
+                  username: opts.username,
+                  strategy: opts.strategy,
+                  reason: 'Invalid credentials',
+                  ip: context.req.ip || context.req.connection.remoteAddress
+                })
+              } catch (hookErr) {
+                WIKI.logger.warn(`Hook execution error (auth:loginFailed): ${hookErr.message}`)
+              }
+            }
+            return reject(new WIKI.Error.AuthLoginFailed())
+          }
 
           try {
             const resp = await WIKI.models.users.afterLoginChecks(user, context, {
@@ -433,6 +476,26 @@ module.exports = class User extends Model {
       context.req.login(user, { session: false }, async errc => {
         if (errc) { return reject(errc) }
         const jwtToken = await WIKI.models.users.refreshToken(user)
+
+        // -> Trigger auth:afterLogin hook
+        if (WIKI.plugins && WIKI.plugins.hooks) {
+          try {
+            await WIKI.plugins.hooks.trigger('auth:afterLogin', {
+              user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                isAdmin: user.groups && user.groups.some(g => g.id === 1)
+              },
+              jwt: jwtToken.token,
+              strategy: context.req.params ? context.req.params.strategy : 'unknown',
+              ip: context.req.ip || context.req.connection.remoteAddress
+            })
+          } catch (hookErr) {
+            WIKI.logger.warn(`Hook execution error (auth:afterLogin): ${hookErr.message}`)
+          }
+        }
+
         resolve({ jwt: jwtToken.token, redirect })
       })
     })

@@ -140,8 +140,6 @@
 <script>
 import _ from 'lodash'
 
-/* global WIKI */
-
 import localesQuery from 'gql/admin/locale/locale-query-list.gql'
 import localesDownloadMutation from 'gql/admin/locale/locale-mutation-download.gql'
 import localesSaveMutation from 'gql/admin/locale/locale-mutation-save.gql'
