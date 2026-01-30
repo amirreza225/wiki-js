@@ -188,6 +188,15 @@
               span {{$t('common:actions.exit')}}
             v-divider(vertical)
 
+          //- PLUGIN INJECTIONS
+
+          template(v-for='injection in pluginToolbarInjections')
+            component(
+              :is='injection.component'
+              :key='injection.id'
+              v-if='!injection.condition || evaluateCondition(injection.condition)'
+            )
+
           //- ACCOUNT
 
           v-menu(v-if='isAuthenticated', offset-y, bottom, min-width='300', transition='slide-y-transition', left)
@@ -340,6 +349,9 @@ export default {
     hasAnyPagePermissions () {
       return this.hasAdminPermission || this.hasWritePagesPermission || this.hasManagePagesPermission ||
         this.hasDeletePagesPermission || this.hasReadSourcePermission || this.hasReadHistoryPermission
+    },
+    pluginToolbarInjections () {
+      return this.$store ? this.$store.getters['plugins/getInjections']('page:toolbar') : []
     }
   },
   created () {
@@ -395,6 +407,28 @@ export default {
     },
     searchMove(dir) {
       this.$root.$emit('searchMove', dir)
+    },
+    evaluateCondition(condition) {
+      // Simple condition evaluation for plugin injections
+      // Supports checking permissions and user state
+      try {
+        // Check for permission conditions (e.g., "user.permissions.includes('write:pages')")
+        if (condition.includes('user.permissions.includes')) {
+          const permMatch = condition.match(/user\.permissions\.includes\(['"](.+?)['"]\)/)
+          if (permMatch && permMatch[1]) {
+            return this.permissions && this.permissions.includes(permMatch[1])
+          }
+        }
+        // Check for authenticated condition
+        if (condition.includes('user.isAuthenticated')) {
+          return this.isAuthenticated
+        }
+        // Default to true if condition can't be evaluated
+        return true
+      } catch (err) {
+        console.warn('[Plugin Injection] Failed to evaluate condition:', condition, err)
+        return false
+      }
     },
     pageNew () {
       this.newPageModal = true

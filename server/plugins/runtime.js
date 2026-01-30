@@ -106,6 +106,11 @@ module.exports = {
       api.models = WIKI.models
     }
 
+    // Add plugin's own models if registered
+    if (WIKI.plugins.modelLoader && WIKI.plugins.modelLoader.hasPluginModels(plugin.id)) {
+      api.pluginModels = WIKI.plugins.modelLoader.getPluginModelsObject(plugin.id)
+    }
+
     // Add WIKI reference for convenience
     api.WIKI = WIKI
 
@@ -113,18 +118,51 @@ module.exports = {
   },
 
   /**
-   * Create read-only WIKI object
-   * TODO: Implement proxy for read-only enforcement
-   * @returns {Object} Limited WIKI object
+   * Create read-only WIKI object with Proxy enforcement
+   * Prevents plugins from modifying core WIKI internals
+   * @returns {Proxy} Read-only WIKI object
    */
   createReadOnlyWIKI() {
-    // For now, return limited subset
-    // TODO: Use Proxy to enforce read-only in Phase 2
-    return {
+    // Create deep read-only proxy for models
+    const createReadOnlyProxy = (target, path = 'WIKI') => {
+      return new Proxy(target, {
+        get(obj, prop) {
+          const value = obj[prop]
+
+          // Allow access to methods and properties
+          if (typeof value === 'function') {
+            // Return bound function to preserve context
+            return value.bind(obj)
+          }
+
+          // Recursively wrap nested objects
+          if (value && typeof value === 'object' && !Array.isArray(value)) {
+            return createReadOnlyProxy(value, `${path}.${String(prop)}`)
+          }
+
+          return value
+        },
+        set(obj, prop, value) {
+          WIKI.logger.warn(`[Plugin Security] Attempted to modify read-only property: ${path}.${String(prop)}`)
+          throw new Error(`Cannot modify read-only property: ${path}.${String(prop)}`)
+        },
+        deleteProperty(obj, prop) {
+          WIKI.logger.warn(`[Plugin Security] Attempted to delete read-only property: ${path}.${String(prop)}`)
+          throw new Error(`Cannot delete read-only property: ${path}.${String(prop)}`)
+        },
+        defineProperty(obj, prop, descriptor) {
+          WIKI.logger.warn(`[Plugin Security] Attempted to define property on read-only object: ${path}.${String(prop)}`)
+          throw new Error(`Cannot define property on read-only object: ${path}.${String(prop)}`)
+        }
+      })
+    }
+
+    // Return limited, read-only WIKI object
+    return createReadOnlyProxy({
       version: WIKI.version,
       models: WIKI.models,
       config: WIKI.config
-    }
+    })
   },
 
   /**

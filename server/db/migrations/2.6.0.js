@@ -12,6 +12,7 @@ exports.up = async knex => {
     table.specificType('keywords', 'text[]').defaultTo('{}')
     table.json('compatibility')
     table.json('config')
+    table.json('manifest')  // Full plugin manifest including UI fields
     table.specificType('permissions', 'text[]').defaultTo('{}')
     table.boolean('isEnabled').notNullable().defaultTo(false)
     table.boolean('isInstalled').notNullable().defaultTo(false)

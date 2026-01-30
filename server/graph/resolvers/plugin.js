@@ -153,6 +153,7 @@ module.exports = {
      */
     async updateConfig(obj, args) {
       try {
+        // Update config in database
         await WIKI.models.plugins.query()
           .patch({
             config: args.config,
@@ -160,8 +161,17 @@ module.exports = {
           })
           .where('id', args.id)
 
+        // Refresh plugin config in memory if plugin is loaded
+        if (WIKI.plugins && WIKI.plugins.manager) {
+          const loadedPlugin = await WIKI.models.plugins.query().findById(args.id)
+          if (loadedPlugin && loadedPlugin.instance) {
+            loadedPlugin.config = args.config
+            WIKI.logger.info(`[Plugins] Refreshed config for plugin: ${args.id}`)
+          }
+        }
+
         return {
-          responseResult: graphHelper.generateSuccess('Plugin configuration updated')
+          responseResult: graphHelper.generateSuccess('Plugin configuration updated successfully')
         }
       } catch (err) {
         return graphHelper.generateError(err)

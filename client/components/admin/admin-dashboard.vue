@@ -92,6 +92,15 @@
                   .body-2: strong {{ props.item.name }}
                 td.text-right.caption(width='250') {{ props.item.lastLoginAt | moment('calendar') }}
 
+      //- PLUGIN INJECTIONS - ADMIN DASHBOARD
+      template(v-for='injection in pluginDashboardInjections')
+        v-flex(xs12)
+          component(
+            :is='injection.component'
+            :key='injection.id'
+            v-if='!injection.condition || evaluateCondition(injection.condition)'
+          )
+
       v-flex(xs12)
         v-card.dashboard-contribute.animated.fadeInUp.wait-p4s
           v-card-text
@@ -142,7 +151,10 @@ export default {
       }
     },
     info: get('admin/info'),
-    permissions: get('user/permissions')
+    permissions: get('user/permissions'),
+    pluginDashboardInjections () {
+      return this.$store ? this.$store.getters['plugins/getInjections']('admin:dashboard') : []
+    }
   },
   methods: {
     round(val) { return Math.round(val) },
@@ -153,6 +165,23 @@ export default {
         })
       } else {
         return _.includes(this.permissions, prm)
+      }
+    },
+    evaluateCondition (condition) {
+      if (!condition) return true
+      try {
+        // Create a safe evaluation context with user data
+        const context = {
+          user: {
+            permissions: this.permissions || [],
+            isAuthenticated: this.$store ? this.$store.get('user/authenticated') : false
+          }
+        }
+        // eslint-disable-next-line no-new-func
+        return new Function('context', `with(context) { return ${condition} }`)(context)
+      } catch (err) {
+        console.warn('[Plugin Injection] Failed to evaluate condition:', condition, err)
+        return false
       }
     }
   },

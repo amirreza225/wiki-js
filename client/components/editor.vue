@@ -16,6 +16,15 @@
         v-btn.mr-3.animated.fadeIn(color='amber', outlined, small, v-if='isConflict', @click='openConflict')
           .overline.amber--text.mr-3 Conflict
           status-indicator(intermediary, pulse)
+
+        //- PLUGIN INJECTIONS - EDITOR TOOLBAR
+        template(v-for='injection in pluginEditorToolbarInjections')
+          component(
+            :is='injection.component'
+            :key='injection.id'
+            v-if='!injection.condition || evaluateCondition(injection.condition)'
+          )
+
         v-btn.animated.fadeInDown(
           text
           color='green'
@@ -198,6 +207,9 @@ export default {
         this.savedState.css !== this.$store.get('page/scriptCss'),
         this.savedState.js !== this.$store.get('page/scriptJs')
       ], Boolean)
+    },
+    pluginEditorToolbarInjections () {
+      return this.$store ? this.$store.getters['plugins/getInjections']('editor:toolbar') : []
     }
   },
   watch: {
@@ -551,7 +563,29 @@ export default {
         document.head.appendChild(styl)
         styl.appendChild(document.createTextNode(css))
       }
-    }, 1000)
+    }, 1000),
+    evaluateCondition (condition) {
+      if (!condition) return true
+      try {
+        // Create a safe evaluation context with page and user data
+        const context = {
+          user: {
+            permissions: this.$store ? this.$store.get('user/permissions') : [],
+            isAuthenticated: this.$store ? this.$store.get('user/authenticated') : false
+          },
+          page: {
+            id: this.$store ? this.$store.get('page/id') : 0,
+            path: this.$store ? this.$store.get('page/path') : '',
+            locale: this.$store ? this.$store.get('page/locale') : 'en'
+          }
+        }
+        // eslint-disable-next-line no-new-func
+        return new Function('context', `with(context) { return ${condition} }`)(context)
+      } catch (err) {
+        console.warn('[Plugin Injection] Failed to evaluate condition:', condition, err)
+        return false
+      }
+    }
   },
   apollo: {
     isConflict: {

@@ -54,36 +54,79 @@ class PluginHooks extends EventEmitter2 {
    * @param {Object} plugin - Plugin object from database
    */
   async registerPluginHooks(plugin) {
-    if (!plugin.instance || !plugin.instance.hooks) {
+    const path = require('path')
+    const fs = require('fs-extra')
+
+    // Get hooks from manifest (array format)
+    let hooksList = []
+    if (plugin.instance && plugin.instance.hooks) {
+      hooksList = plugin.instance.hooks
+    } else if (plugin.manifest && typeof plugin.manifest === 'string') {
+      try {
+        const manifest = JSON.parse(plugin.manifest)
+        hooksList = manifest.hooks || []
+      } catch (err) {
+        WIKI.logger.warn(`[Plugin Hooks] Failed to parse manifest for plugin ${plugin.id}: ${err.message}`)
+        return
+      }
+    } else if (plugin.manifest && Array.isArray(plugin.manifest.hooks)) {
+      hooksList = plugin.manifest.hooks
+    }
+
+    if (!Array.isArray(hooksList) || hooksList.length === 0) {
       return
     }
 
     const runtime = require('./runtime')
-    const hooks = plugin.instance.hooks
+    const hooksPath = path.join(plugin.installPath, 'server', 'hooks')
 
     // Clear any existing hooks for this plugin
     this.unregisterPluginHooks(plugin.id)
 
     const hookHandlers = []
 
-    for (const hookName in hooks) {
-      const handler = hooks[hookName]
+    for (const hookName of hooksList) {
+      // Convert hook name to camelCase filename (e.g., 'page:save' -> 'pageSave.js')
+      const fileName = hookName.replace(/[:-](\w)/g, (_, char) => char.toUpperCase()) + '.js'
+      const hookFilePath = path.join(hooksPath, fileName)
 
-      if (typeof handler !== 'function') {
-        WIKI.logger.warn(`[Plugin Hooks] Invalid hook handler for ${hookName} in plugin ${plugin.id}`)
+      // Check if hook file exists
+      if (!await fs.pathExists(hookFilePath)) {
+        WIKI.logger.warn(`[Plugin Hooks] Hook file not found for ${hookName} in plugin ${plugin.id}: ${hookFilePath}`)
         continue
       }
 
-      // Wrap handler with runtime context and error handling
-      const wrappedHandler = async (data) => {
-        return await runtime.executePlugin(plugin, hookName, data)
+      try {
+        // Load hook handler function from file
+        const handler = require(hookFilePath)
+
+        if (typeof handler !== 'function') {
+          WIKI.logger.warn(`[Plugin Hooks] Invalid hook handler for ${hookName} in plugin ${plugin.id}: must export a function`)
+          continue
+        }
+
+        // Create plugin context for hook execution
+        const context = runtime.createContext(plugin)
+
+        // Wrap handler with error handling
+        const wrappedHandler = async (data) => {
+          try {
+            // Bind context as 'this' when calling the handler
+            return await handler.call(context, data)
+          } catch (err) {
+            WIKI.logger.error(`[Plugin Hooks] Error executing hook ${hookName} for plugin ${plugin.id}: ${err.message}`)
+            throw err
+          }
+        }
+
+        // Register listener
+        this.on(hookName, wrappedHandler)
+        hookHandlers.push({ hookName, handler: wrappedHandler })
+
+        WIKI.logger.info(`[Plugin Hooks] Registered hook ${hookName} for plugin ${plugin.id}`)
+      } catch (err) {
+        WIKI.logger.error(`[Plugin Hooks] Failed to load hook ${hookName} for plugin ${plugin.id}: ${err.message}`)
       }
-
-      // Register listener
-      this.on(hookName, wrappedHandler)
-      hookHandlers.push({ hookName, handler: wrappedHandler })
-
-      WIKI.logger.info(`[Plugin Hooks] Registered hook ${hookName} for plugin ${plugin.id}`)
     }
 
     // Store handlers for cleanup

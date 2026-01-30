@@ -47,7 +47,9 @@ module.exports = {
         manager: require('../plugins/manager'),
         runtime: require('../plugins/runtime'),
         security: require('../plugins/security'),
-        hooks: require('../plugins/hooks')
+        hooks: require('../plugins/hooks'),
+        modelLoader: new (require('../plugins/models'))(),
+        routeLoader: new (require('../plugins/routes'))()
       }
     } catch (err) {
       WIKI.logger.error(err)
@@ -96,6 +98,18 @@ module.exports = {
     WIKI.scheduler.start()
 
     await WIKI.models.subscribeToNotifications()
+
+    // -> Trigger app:start hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('app:start', {
+          version: WIKI.version,
+          startTime: new Date().toISOString()
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (app:start): ${hookErr.message}`)
+      }
+    }
   },
   /**
    * Init Telemetry
@@ -116,6 +130,17 @@ module.exports = {
    * Graceful shutdown
    */
   async shutdown (devMode = false) {
+    // -> Trigger app:shutdown hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('app:shutdown', {
+          shutdownTime: new Date().toISOString()
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (app:shutdown): ${hookErr.message}`)
+      }
+    }
+
     if (WIKI.servers) {
       await WIKI.servers.stopServers()
     }

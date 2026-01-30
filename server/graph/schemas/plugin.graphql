@@ -48,6 +48,7 @@ type Plugin {
   keywords: [String]
   compatibility: JSON
   config: JSON
+  manifest: JSON
   permissions: [String]
   isEnabled: Boolean!
   isInstalled: Boolean!

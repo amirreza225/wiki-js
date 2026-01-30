@@ -324,6 +324,37 @@ module.exports = class Page extends Model {
       isPrivate: opts.isPrivate
     })
 
+    // -> Trigger page:save hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('page:save', {
+          page: {
+            id: page.id,
+            path: page.path,
+            title: page.title,
+            description: page.description,
+            content: page.content,
+            contentType: page.contentType,
+            isPublished: page.isPublished,
+            isPrivate: page.isPrivate,
+            localeCode: page.localeCode,
+            authorId: page.authorId,
+            createdAt: page.createdAt,
+            updatedAt: page.updatedAt
+          },
+          user: {
+            id: opts.user.id,
+            name: opts.user.name,
+            email: opts.user.email,
+            isAdmin: opts.user.groups && opts.user.groups.some(g => g.id === 1)
+          },
+          isNew: true
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (page:save): ${hookErr.message}`)
+      }
+    }
+
     // -> Save Tags
     if (opts.tags && opts.tags.length > 0) {
       await WIKI.models.tags.associateTags({ tags: opts.tags, page })
@@ -438,6 +469,37 @@ module.exports = class Page extends Model {
       })
     }).where('id', ogPage.id)
     let page = await WIKI.models.pages.getPageFromDb(ogPage.id)
+
+    // -> Trigger page:save hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('page:save', {
+          page: {
+            id: page.id,
+            path: page.path,
+            title: page.title,
+            description: page.description,
+            content: page.content,
+            contentType: page.contentType,
+            isPublished: page.isPublished,
+            isPrivate: page.isPrivate,
+            localeCode: page.localeCode,
+            authorId: page.authorId,
+            createdAt: page.createdAt,
+            updatedAt: page.updatedAt
+          },
+          user: {
+            id: opts.user.id,
+            name: opts.user.name,
+            email: opts.user.email,
+            isAdmin: opts.user.groups && opts.user.groups.some(g => g.id === 1)
+          },
+          isNew: false
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (page:save): ${hookErr.message}`)
+      }
+    }
 
     // -> Save Tags
     await WIKI.models.tags.associateTags({ tags: opts.tags, page })
@@ -808,6 +870,33 @@ module.exports = class Page extends Model {
       action: 'deleted',
       versionDate: page.updatedAt
     })
+
+    // -> Trigger page:delete hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('page:delete', {
+          page: {
+            id: page.id,
+            path: page.path,
+            title: page.title,
+            description: page.description,
+            content: page.content,
+            localeCode: page.localeCode,
+            authorId: page.authorId,
+            createdAt: page.createdAt,
+            updatedAt: page.updatedAt
+          },
+          user: {
+            id: opts.user.id,
+            name: opts.user.name,
+            email: opts.user.email,
+            isAdmin: opts.user.groups && opts.user.groups.some(g => g.id === 1)
+          }
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (page:delete): ${hookErr.message}`)
+      }
+    }
 
     // -> Delete page
     await WIKI.models.pages.query().delete().where('id', page.id)

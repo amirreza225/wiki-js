@@ -66,6 +66,15 @@ module.exports = async () => {
   }))
 
   // ----------------------------------------
+  // Plugin Assets
+  // ----------------------------------------
+
+  app.use('/plugins/assets', express.static(path.join(WIKI.ROOTPATH, 'plugins', 'cache'), {
+    index: false,
+    maxAge: '7d'
+  }))
+
+  // ----------------------------------------
   // SSL Handlers
   // ----------------------------------------
 
@@ -164,6 +173,16 @@ module.exports = async () => {
 
   app.use('/', ctrl.auth)
   app.use('/', ctrl.upload)
+
+  // ----------------------------------------
+  // Plugin Routes Placeholder
+  // ----------------------------------------
+  // IMPORTANT: Plugin router must be registered BEFORE ctrl.common
+  // because ctrl.common has a catch-all /* route that would intercept plugin API calls
+  const pluginRouter = require('express').Router()
+  WIKI.pluginRouter = pluginRouter
+  app.use('/api/plugin', pluginRouter)
+
   app.use('/', ctrl.common)
 
   // ----------------------------------------
@@ -204,6 +223,16 @@ module.exports = async () => {
   if (WIKI.config.ssl.enabled === true || WIKI.config.ssl.enabled === 'true' || WIKI.config.ssl.enabled === 1 || WIKI.config.ssl.enabled === '1') {
     await WIKI.servers.startHTTPS()
   }
+
+  // Debug: Log all registered routes
+  WIKI.logger.debug('[MASTER] Registered Express routes:')
+  app._router.stack.forEach((middleware, index) => {
+    if (middleware.route) {
+      WIKI.logger.debug(`  ${index}: ${middleware.route.path}`)
+    } else if (middleware.name === 'router') {
+      WIKI.logger.debug(`  ${index}: Router (${middleware.regexp})`)
+    }
+  })
 
   return true
 }

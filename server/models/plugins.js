@@ -82,14 +82,22 @@ module.exports = class Plugin extends Model {
         // Check if plugin exists in database
         if (existingIds.has(manifest.id)) {
           // Update existing plugin metadata (but preserve user config and enabled state)
+          // Convert string author/repository to objects for JSON columns
+          const authorJson = manifest.author
+            ? (typeof manifest.author === 'string' ? { name: manifest.author } : manifest.author)
+            : null
+          const repositoryJson = manifest.repository
+            ? (typeof manifest.repository === 'string' ? { url: manifest.repository } : manifest.repository)
+            : null
+
           await WIKI.models.plugins.query()
             .patch({
               name: manifest.name,
               version: manifest.version,
               description: manifest.description || '',
-              author: manifest.author || null,
+              author: authorJson,
               license: manifest.license || 'UNLICENSED',
-              repository: manifest.repository || null,
+              repository: repositoryJson,
               homepage: manifest.homepage || '',
               keywords: manifest.keywords || [],
               compatibility: manifest.compatibility || null,
@@ -102,14 +110,22 @@ module.exports = class Plugin extends Model {
           WIKI.logger.debug(`[Plugins] Updated plugin metadata: ${manifest.id}`)
         } else {
           // Insert new plugin (disabled by default)
+          // Convert string author/repository to objects for JSON columns
+          const authorJson = manifest.author
+            ? (typeof manifest.author === 'string' ? { name: manifest.author } : manifest.author)
+            : null
+          const repositoryJson = manifest.repository
+            ? (typeof manifest.repository === 'string' ? { url: manifest.repository } : manifest.repository)
+            : null
+
           await WIKI.models.plugins.query().insert({
             id: manifest.id,
             name: manifest.name,
             version: manifest.version,
             description: manifest.description || '',
-            author: manifest.author || null,
+            author: authorJson,
             license: manifest.license || 'UNLICENSED',
-            repository: manifest.repository || null,
+            repository: repositoryJson,
             homepage: manifest.homepage || '',
             keywords: manifest.keywords || [],
             compatibility: manifest.compatibility || null,
@@ -183,8 +199,38 @@ module.exports = class Plugin extends Model {
         // Load plugin from disk
         await runtime.loadPlugin(plugin)
 
+        // Run database migrations
+        const manager = require('../plugins/manager')
+        await manager.runMigrations(plugin.id, plugin.installPath)
+
+        // Discover and register database models
+        if (WIKI.plugins.modelLoader) {
+          const models = await WIKI.plugins.modelLoader.discoverModels(plugin.id, plugin.installPath)
+          if (models.size > 0) {
+            WIKI.plugins.modelLoader.registerPluginModels(plugin.id, models, WIKI.models.knex)
+            WIKI.logger.info(`[PLUGIN ${plugin.id}] Registered ${models.size} database model(s)`)
+          }
+        }
+
         // Register hooks
         await hooks.registerPluginHooks(plugin)
+
+        // Load plugin API routes
+        if (WIKI.app) {
+          try {
+            const manager = require('../plugins/manager')
+            const routeResult = await manager.loadPluginRoutes(plugin)
+
+            if (routeResult.registered > 0) {
+              WIKI.logger.info(`[PLUGIN ${plugin.id}] Loaded ${routeResult.registered} API route(s) at startup`)
+            }
+          } catch (routeErr) {
+            WIKI.logger.error(`[PLUGIN ${plugin.id}] Failed to load routes at startup: ${routeErr.message}`)
+            // Don't fail entire plugin load if routes fail - plugin can still work without custom API routes
+          }
+        } else {
+          WIKI.logger.warn(`[PLUGIN ${plugin.id}] Express app not available yet, skipping route loading`)
+        }
 
         // Update status to active
         await WIKI.models.plugins.query()

@@ -100,6 +100,32 @@ module.exports = class User extends Model {
     await this.generateHash()
   }
 
+  async $afterInsert(context) {
+    await super.$afterInsert(context)
+
+    // -> Trigger user:create hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('user:create', {
+          user: {
+            id: this.id,
+            name: this.name,
+            email: this.email,
+            providerKey: this.providerKey,
+            localeCode: this.localeCode,
+            timezone: this.timezone,
+            isSystem: this.isSystem,
+            isActive: this.isActive,
+            isVerified: this.isVerified,
+            createdAt: this.createdAt
+          }
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (user:create): ${hookErr.message}`)
+      }
+    }
+  }
+
   // ------------------------------------------------
   // Instance Methods
   // ------------------------------------------------
@@ -435,6 +461,26 @@ module.exports = class User extends Model {
     // Update Last Login Date
     // -> Bypass Objection.js to avoid updating the updatedAt field
     await WIKI.models.knex('users').where('id', user.id).update({ lastLoginAt: new Date().toISOString() })
+
+    // -> Trigger user:login hook
+    if (WIKI.plugins && WIKI.plugins.hooks) {
+      try {
+        await WIKI.plugins.hooks.trigger('user:login', {
+          user: {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            providerKey: user.providerKey,
+            localeCode: user.localeCode,
+            timezone: user.timezone,
+            lastLoginAt: new Date().toISOString()
+          },
+          strategy: user.providerKey
+        })
+      } catch (hookErr) {
+        WIKI.logger.warn(`Hook execution error (user:login): ${hookErr.message}`)
+      }
+    }
 
     return {
       token: jwt.sign({

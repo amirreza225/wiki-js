@@ -12,6 +12,7 @@ const MomentTimezoneDataPlugin = require('moment-timezone-data-webpack-plugin')
 const VuetifyLoaderPlugin = require('vuetify-loader/lib/plugin')
 const WriteFilePlugin = require('write-file-webpack-plugin')
 const WebpackBarPlugin = require('webpackbar')
+const WikiPluginLoaderPlugin = require('./plugin-loader')
 
 const babelConfig = fs.readJsonSync(path.join(process.cwd(), '.babelrc'))
 const cacheDir = '.webpack-cache/cache'
@@ -184,6 +185,7 @@ module.exports = {
     ]
   },
   plugins: [
+    new WikiPluginLoaderPlugin(),
     new VueLoaderPlugin(),
     new VuetifyLoaderPlugin(),
     new MomentTimezoneDataPlugin({

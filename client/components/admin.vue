@@ -95,6 +95,9 @@
             v-list-item(to='/utilities', color='primary', v-if='hasPermission(`manage:system`)')
               v-list-item-avatar(size='24', tile): v-icon mdi-wrench-outline
               v-list-item-title {{ $t('admin:utilities.title') }}
+            v-list-item(to='/plugins', color='primary', v-if='hasPermission(`manage:system`)')
+              v-list-item-avatar(size='24', tile): v-icon mdi-puzzle
+              v-list-item-title Plugins
             v-list-group(
               to='/dev'
               no-action
@@ -116,6 +119,27 @@
           v-list-item(to='/contribute', color='primary')
             v-list-item-avatar(size='24', tile): v-icon mdi-heart-outline
             v-list-item-title {{ $t('admin:contribute.title') }}
+
+          //- PLUGIN ADMIN PAGES
+          template(v-if='pluginAdminPages.length > 0')
+            v-divider.my-2
+            v-subheader.pl-4 Plugins
+            v-list-item(
+              v-for='page in pluginAdminPages'
+              :key='page.path'
+              :to='page.path'
+              color='primary'
+            )
+              v-list-item-avatar(size='24', tile): v-icon {{ page.icon || 'mdi-puzzle' }}
+              v-list-item-title {{ page.label || page.pluginName }}
+
+          //- PLUGIN INJECTIONS - ADMIN SIDEBAR
+          template(v-for='injection in pluginSidebarInjections')
+            component(
+              :is='injection.component'
+              :key='injection.id'
+              v-if='!injection.condition || evaluateCondition(injection.condition)'
+            )
 
     v-main(:class='$vuetify.theme.dark ? "grey darken-5" : "grey lighten-5"')
       transition(name='admin-router')
@@ -163,6 +187,7 @@ const router = new VueRouter({
     { path: '/rendering', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-rendering.vue') },
     { path: '/editor', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-editor.vue') },
     { path: '/extensions', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-extensions.vue') },
+    { path: '/plugins', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-plugins.vue') },
     { path: '/logging', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-logging.vue') },
     { path: '/search', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-search.vue') },
     { path: '/storage', component: () => import(/* webpackChunkName: "admin" */ './admin/admin-storage.vue') },
@@ -208,13 +233,59 @@ export default {
   },
   computed: {
     info: sync('admin/info'),
-    permissions: get('user/permissions')
+    permissions: get('user/permissions'),
+    pluginAdminPages() {
+      const plugins = this.$store.getters['plugins/allPlugins']
+      const pages = []
+
+      if (!plugins) return pages
+
+      for (const plugin of plugins) {
+        if (plugin.manifest && plugin.manifest.adminPages) {
+          for (const page of plugin.manifest.adminPages) {
+            pages.push({
+              ...page,
+              pluginId: plugin.id,
+              pluginName: plugin.name,
+              path: `/plugin/${plugin.id}${page.path}`
+            })
+          }
+        }
+      }
+
+      return pages
+    },
+    pluginSidebarInjections () {
+      return this.$store ? this.$store.getters['plugins/getInjections']('admin:sidebar') : []
+    }
   },
   router,
   created() {
     this.$store.commit('page/SET_MODE', 'admin')
   },
+  async mounted() {
+    // Register plugin admin pages dynamically
+    await this.registerPluginAdminPages()
+  },
   methods: {
+    async registerPluginAdminPages() {
+      try {
+        const plugins = this.$store.getters['plugins/allPlugins']
+
+        if (!plugins || plugins.length === 0) {
+          return
+        }
+
+        // Note: Dynamic loading of plugin admin pages requires them to be built
+        // into the main bundle via webpack or loaded as external scripts.
+        // For now, plugin admin pages are shown in the sidebar but require
+        // a rebuild to register the actual components.
+
+        console.log(`[Admin] Found ${plugins.length} plugins with potential admin pages`)
+      } catch (err) {
+        console.error('[Admin] Failed to register plugin admin pages:', err)
+      }
+    },
     hasPermission(prm) {
       if (_.isArray(prm)) {
         return _.some(prm, p => {
@@ -222,6 +293,23 @@ export default {
         })
       } else {
         return _.includes(this.permissions, prm)
+      }
+    },
+    evaluateCondition (condition) {
+      if (!condition) return true
+      try {
+        // Create a safe evaluation context with user data
+        const context = {
+          user: {
+            permissions: this.permissions || [],
+            isAuthenticated: this.$store ? this.$store.get('user/authenticated') : false
+          }
+        }
+        // eslint-disable-next-line no-new-func
+        return new Function('context', `with(context) { return ${condition} }`)(context)
+      } catch (err) {
+        console.warn('[Plugin Injection] Failed to evaluate condition:', condition, err)
+        return false
       }
     }
   },

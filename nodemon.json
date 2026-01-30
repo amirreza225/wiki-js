@@ -1,0 +1,28 @@
+{
+  "watch": [
+    "server/",
+    "plugins/installed/",
+    "config.yml",
+    "dev/index.js"
+  ],
+  "ext": "js,json,yml,yaml",
+  "ignore": [
+    "node_modules/",
+    "client/",
+    "assets/",
+    "data/",
+    "logs/",
+    "plugins/cache/",
+    "**/*.test.js",
+    "**/*.spec.js"
+  ],
+  "exec": "cross-env NODE_OPTIONS=--openssl-legacy-provider node dev",
+  "delay": 1000,
+  "verbose": false,
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "events": {
+    "restart": "echo '\n🔄 Restarting due to file changes...\n'"
+  }
+}

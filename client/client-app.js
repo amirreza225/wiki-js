@@ -144,6 +144,79 @@ Vue.use(Vuescroll)
 
 Vue.prototype.Velocity = Velocity
 
+// Expose Vuetify globally for plugin externals
+if (typeof window !== 'undefined') {
+  window.Vuetify = Vuetify
+}
+
+// Register commonly-used Vuetify components globally for plugins
+// This is needed because vuetify-loader uses tree-shaking, so components
+// are not automatically global. Plugins need these registered globally.
+import {
+  VApp,
+  VAppBar,
+  VAvatar,
+  VBadge,
+  VBtn,
+  VCard,
+  VCardActions,
+  VCardText,
+  VCardTitle,
+  VChip,
+  VDialog,
+  VDivider,
+  VIcon,
+  VList,
+  VListItem,
+  VListItemAction,
+  VListItemAvatar,
+  VListItemContent,
+  VListItemGroup,
+  VListItemIcon,
+  VListItemSubtitle,
+  VListItemTitle,
+  VMenu,
+  VProgressCircular,
+  VProgressLinear,
+  VSnackbar,
+  VTextField,
+  VToolbar,
+  VToolbarTitle,
+  VTooltip
+} from 'vuetify/lib'
+
+// Register components globally
+Vue.component('VApp', VApp)
+Vue.component('VAppBar', VAppBar)
+Vue.component('VAvatar', VAvatar)
+Vue.component('VBadge', VBadge)
+Vue.component('VBtn', VBtn)
+Vue.component('VCard', VCard)
+Vue.component('VCardActions', VCardActions)
+Vue.component('VCardText', VCardText)
+Vue.component('VCardTitle', VCardTitle)
+Vue.component('VChip', VChip)
+Vue.component('VDialog', VDialog)
+Vue.component('VDivider', VDivider)
+Vue.component('VIcon', VIcon)
+Vue.component('VList', VList)
+Vue.component('VListItem', VListItem)
+Vue.component('VListItemAction', VListItemAction)
+Vue.component('VListItemAvatar', VListItemAvatar)
+Vue.component('VListItemContent', VListItemContent)
+Vue.component('VListItemGroup', VListItemGroup)
+Vue.component('VListItemIcon', VListItemIcon)
+Vue.component('VListItemSubtitle', VListItemSubtitle)
+Vue.component('VListItemTitle', VListItemTitle)
+Vue.component('VMenu', VMenu)
+Vue.component('VProgressCircular', VProgressCircular)
+Vue.component('VProgressLinear', VProgressLinear)
+Vue.component('VSnackbar', VSnackbar)
+Vue.component('VTextField', VTextField)
+Vue.component('VToolbar', VToolbar)
+Vue.component('VToolbarTitle', VToolbarTitle)
+Vue.component('VTooltip', VTooltip)
+
 // ====================================
 // Register Vue Components
 // ====================================
@@ -210,7 +283,7 @@ let bootstrap = () => {
         dark: darkModeEnabled
       }
     }),
-    mounted () {
+    async mounted () {
       this.$moment.locale(siteConfig.lang)
       if ((store.get('user/dateFormat') || '').length > 0) {
         this.$moment.updateLocale(this.$moment.locale(), {
@@ -221,6 +294,24 @@ let bootstrap = () => {
       }
       if ((store.get('user/timezone') || '').length > 0) {
         this.$moment.tz.setDefault(store.get('user/timezone'))
+      }
+
+      // Initialize plugins
+      try {
+        const { default: ClientPluginLoader } = await import(/* webpackChunkName: "plugin-loader" */ './plugins/loader')
+        const pluginLoader = new ClientPluginLoader()
+        await pluginLoader.initializePlugins({
+          Vue,
+          $vuetify: this.$vuetify,
+          $store: this.$store,
+          $router: this.$router,
+          $apollo: this.$apollo
+        })
+        // Store plugin loader globally for access by other components
+        this.$pluginLoader = pluginLoader
+        window.WIKI.pluginLoader = pluginLoader
+      } catch (err) {
+        console.error('[App] Failed to initialize plugins:', err)
       }
     }
   })

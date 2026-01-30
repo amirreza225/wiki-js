@@ -7,6 +7,7 @@ import { make } from 'vuex-pathify' // eslint-disable-line import/no-duplicates
 import page from './page'
 import site from './site'
 import user from './user'
+import plugins from './plugins'
 
 /* global WIKI */
 
@@ -62,6 +63,7 @@ export default new Vuex.Store({
   modules: {
     page,
     site,
-    user
+    user,
+    plugins
   }
 })

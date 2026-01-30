@@ -15,6 +15,7 @@ const OptimizeCssAssetsPlugin = require('optimize-css-assets-webpack-plugin')
 const ScriptExtHtmlWebpackPlugin = require('script-ext-html-webpack-plugin')
 const VuetifyLoaderPlugin = require('vuetify-loader/lib/plugin')
 const WebpackBarPlugin = require('webpackbar')
+const WikiPluginLoaderPlugin = require('./plugin-loader')
 
 const now = Math.round(Date.now() / 1000)
 
@@ -190,6 +191,7 @@ module.exports = {
     ]
   },
   plugins: [
+    new WikiPluginLoaderPlugin(),
     new VueLoaderPlugin(),
     new VuetifyLoaderPlugin(),
     new webpack.BannerPlugin('Wiki.js - wiki.js.org - Licensed under AGPL'),

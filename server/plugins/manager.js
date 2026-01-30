@@ -100,6 +100,7 @@ module.exports = {
         keywords: manifest.keywords || [],
         compatibility: manifest.compatibility || null,
         config: manifest.config || null,
+        manifest: manifest,  // Store full manifest for client-side use
         permissions: manifest.permissions || [],
         isEnabled: false,
         isInstalled: true,
@@ -162,6 +163,15 @@ module.exports = {
         throw new Error(`Plugin ${pluginId} is already enabled`)
       }
 
+      // Validate plugin build
+      const validation = await this.validatePluginBuild(plugin.installPath)
+      if (!validation.valid) {
+        throw new Error(`Plugin build validation failed: ${validation.error}`)
+      }
+      if (validation.warning) {
+        WIKI.logger.warn(`[PLUGIN ${pluginId}] ${validation.warning}`)
+      }
+
       // Check if plugin has GraphQL extensions (requires restart)
       const hasGraphQL = await this.hasGraphQLExtensions(plugin.installPath)
 
@@ -182,6 +192,22 @@ module.exports = {
       if (!hasGraphQL) {
         const updatedPlugin = await WIKI.models.plugins.query().findById(pluginId)
         await runtime.loadPlugin(updatedPlugin)
+
+        // Discover and register database models
+        if (WIKI.plugins.modelLoader) {
+          const models = await WIKI.plugins.modelLoader.discoverModels(pluginId, updatedPlugin.installPath)
+          if (models.size > 0) {
+            WIKI.plugins.modelLoader.registerPluginModels(pluginId, models, WIKI.models.knex)
+          }
+        }
+
+        // Discover and register API routes
+        if (WIKI.plugins.routeLoader && WIKI.app) {
+          const router = await WIKI.plugins.routeLoader.discoverRoutes(pluginId, updatedPlugin.installPath)
+          if (router) {
+            WIKI.plugins.routeLoader.registerPluginRoutes(WIKI.app, pluginId, router, updatedPlugin)
+          }
+        }
 
         // Register hooks
         await hooks.registerPluginHooks(updatedPlugin)
@@ -248,6 +274,16 @@ module.exports = {
 
       // Unregister hooks
       hooks.unregisterPluginHooks(pluginId)
+
+      // Unregister API routes
+      if (WIKI.plugins.routeLoader && WIKI.app) {
+        WIKI.plugins.routeLoader.unregisterPluginRoutes(WIKI.app, pluginId)
+      }
+
+      // Unregister database models
+      if (WIKI.plugins.modelLoader) {
+        WIKI.plugins.modelLoader.unregisterPluginModels(pluginId)
+      }
 
       // Update database
       await WIKI.models.plugins.query()
@@ -399,5 +435,174 @@ module.exports = {
     const hasResolvers = await fs.pathExists(resolversPath)
 
     return hasSchema || hasResolvers
+  },
+
+  /**
+   * Validate that plugin bundles use externals correctly
+   * @param {string} pluginPath - Absolute path to plugin directory
+   * @returns {Object} Validation result with valid flag and optional error/warning
+   */
+  async validatePluginBuild(pluginPath) {
+    const cachePath = path.join(WIKI.ROOTPATH, 'plugins', 'cache', path.basename(pluginPath))
+    const manifestPath = path.join(cachePath, 'manifest.json')
+
+    if (!await fs.pathExists(manifestPath)) {
+      return { valid: true, warning: 'No client bundle found' }
+    }
+
+    try {
+      const manifest = await fs.readJson(manifestPath)
+      const bundlePath = path.join(cachePath, manifest.js || manifest.assets.js)
+
+      if (!await fs.pathExists(bundlePath)) {
+        return { valid: true, warning: 'No client bundle found' }
+      }
+
+      const bundleContent = await fs.readFile(bundlePath, 'utf8')
+      const bundleSize = bundleContent.length
+
+      // Warn if bundle is suspiciously large (> 500KB suggests bundled dependencies)
+      if (bundleSize > 500000) {
+        return {
+          valid: false,
+          error: `Client bundle is ${Math.round(bundleSize / 1024)}KB. May be bundling Vue/Vuetify. ` +
+                 'Rebuild with: yarn build:plugins'
+        }
+      }
+
+      // Check for specific patterns indicating bundled dependencies
+      const hasVuetifyCode = bundleContent.includes('VBtn.render') ||
+                            bundleContent.includes('vuetify/lib/components')
+
+      if (hasVuetifyCode) {
+        return {
+          valid: false,
+          error: 'Plugin bundle includes Vuetify code. Rebuild with correct externals configuration.'
+        }
+      }
+
+      return { valid: true }
+
+    } catch (err) {
+      return { valid: true, warning: `Could not validate bundle: ${err.message}` }
+    }
+  },
+
+  /**
+   * Discover and register API routes for a plugin
+   * @param {Object} plugin - Plugin record from database
+   * @returns {Promise<Object>} Route registration result
+   */
+  async loadPluginRoutes(plugin) {
+    const pluginDiskPath = path.join(WIKI.ROOTPATH, 'plugins', 'installed', plugin.id)
+    const routesPath = path.join(pluginDiskPath, 'server', 'routes', 'index.js')
+
+    // Check if routes file exists
+    if (!await fs.pathExists(routesPath)) {
+      WIKI.logger.debug(`[PLUGIN ${plugin.id}] No API routes found`)
+      return { registered: 0, routes: [] }
+    }
+
+    try {
+      // Clear require cache for HMR support
+      delete require.cache[require.resolve(routesPath)]
+
+      // Load route module
+      const routes = require(routesPath)
+
+      // Validate route module exports a router
+      if (typeof routes !== 'function' && (!routes.router || typeof routes.router !== 'function')) {
+        throw new Error('Route module must export Express router or middleware function')
+      }
+
+      // Create middleware to inject plugin context
+      const pluginContextMiddleware = (req, res, next) => {
+        try {
+          // Inject plugin context into request
+          const pluginModels = WIKI.plugins.modelLoader ? WIKI.plugins.modelLoader.getPluginModelsObject(plugin.id) : {}
+
+          // Debug: Log if models are missing when expected
+          if (Object.keys(pluginModels).length === 0) {
+            const hasDbPermission = plugin.permissions && (
+              plugin.permissions.includes('database:read') ||
+              plugin.permissions.includes('database:write')
+            )
+            if (hasDbPermission) {
+              WIKI.logger.warn(`[PLUGIN ${plugin.id}] No models registered but plugin has database permissions`)
+            }
+          }
+
+          req.pluginContext = {
+            logger: WIKI.logger,
+            config: plugin.config || {},
+            db: {
+              knex: WIKI.models.knex,
+              pluginModels
+            },
+            plugin: {
+              id: plugin.id,
+              version: plugin.version,
+              path: pluginDiskPath
+            },
+            WIKI: {
+              models: WIKI.models
+            }
+          }
+          WIKI.logger.info(`[PLUGIN ${plugin.id}] Context middleware executed for ${req.method} ${req.path}`)
+          next()
+        } catch (err) {
+          WIKI.logger.error(`[PLUGIN ${plugin.id}] Context middleware error: ${err.message}`)
+          next(err)
+        }
+      }
+
+      // Register routes with the pluginRouter (not the app directly)
+      const router = routes.router || routes
+      const fullPath = `/api/plugin/${plugin.id}`
+
+      if (!WIKI.pluginRouter) {
+        WIKI.logger.error(`[PLUGIN ${plugin.id}] Plugin router not available - routes cannot be registered`)
+        throw new Error('Plugin router not initialized. Ensure master.js has created WIKI.pluginRouter')
+      }
+
+      // Create a wrapper middleware that includes context + router
+      const combinedMiddleware = (req, res, next) => {
+        pluginContextMiddleware(req, res, (err) => {
+          if (err) return next(err)
+          router(req, res, next)
+        })
+      }
+
+      // Add the route to pluginRouter (which is already mounted at /api/plugin in master.js)
+      // Use relative path: /${plugin.id} instead of absolute path /api/plugin/${plugin.id}
+      WIKI.pluginRouter.use(`/${plugin.id}`, combinedMiddleware)
+
+      WIKI.logger.info(`[PLUGIN ${plugin.id}] Registered API routes at ${fullPath}`)
+      WIKI.logger.info(`[PLUGIN ${plugin.id}] DEBUG: pluginRouter stack layers: ${WIKI.pluginRouter.stack.length}`)
+
+      // Log route details for debugging
+      WIKI.logger.info(`[PLUGIN ${plugin.id}] Full test URL: http://localhost:3000${fullPath}/stats`)
+
+      // Debug: Log the routes in the plugin router
+      if (router.stack) {
+        WIKI.logger.info(`[PLUGIN ${plugin.id}] Routes defined in plugin:`)
+        router.stack.forEach((layer, idx) => {
+          if (layer.route) {
+            const methods = Object.keys(layer.route.methods).join(',').toUpperCase()
+            WIKI.logger.info(`  ${idx}: ${methods} ${fullPath}${layer.route.path}`)
+          }
+        })
+      }
+
+      return {
+        registered: 1,
+        routes: [{ basePath: fullPath }]
+      }
+
+    } catch (err) {
+      WIKI.logger.error(`[PLUGIN ${plugin.id}] Failed to load API routes: ${err.message}`)
+      WIKI.logger.error(`[PLUGIN ${plugin.id}] Stack trace:`, err.stack)
+      throw err
+    }
   }
 }

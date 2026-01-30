@@ -328,6 +328,15 @@
               .caption {{$t('common:page.unpublishedWarning')}}
             .contents(ref='container')
               slot(name='contents')
+
+            //- PLUGIN INJECTIONS - PAGE FOOTER
+            template(v-for='injection in pluginFooterInjections')
+              component(
+                :is='injection.component'
+                :key='injection.id'
+                v-if='!injection.condition || evaluateCondition(injection.condition)'
+              )
+
             .comments-container#discussion(v-if='commentsEnabled && commentsPerms.read && !printView')
               .comments-header
                 v-icon.mr-2(dark) mdi-comment-text-outline
@@ -379,31 +388,6 @@ Prism.plugins.NormalizeWhitespace.setDefaults({
   'right-trim': true,
   'remove-initial-line-feed': true,
   'tabs-to-spaces': 2
-})
-Prism.plugins.toolbar.registerButton('copy-to-clipboard', (env) => {
-  let linkCopy = document.createElement('button')
-  linkCopy.textContent = 'Copy'
-
-  const clip = new ClipboardJS(linkCopy, {
-    text: () => { return env.code }
-  })
-
-  clip.on('success', () => {
-    linkCopy.textContent = 'Copied!'
-    resetClipboardText()
-  })
-  clip.on('error', () => {
-    linkCopy.textContent = 'Press Ctrl+C to copy'
-    resetClipboardText()
-  })
-
-  return linkCopy
-
-  function resetClipboardText() {
-    setTimeout(() => {
-      linkCopy.textContent = 'Copy'
-    }, 5000)
-  }
 })
 
 export default {
@@ -500,6 +484,7 @@ export default {
       navExpanded: false,
       upBtnShown: false,
       pageEditFab: false,
+      prismInitialized: false,
       scrollOpts: {
         duration: 1500,
         offset: 0,
@@ -581,6 +566,9 @@ export default {
       } else {
         return ''
       }
+    },
+    pluginFooterInjections () {
+      return this.$store ? this.$store.getters['plugins/getInjections']('page:footer') : []
     }
   },
   created() {
@@ -616,8 +604,13 @@ export default {
       this.handleSideNavVisibility()
     }, 500))
 
+    // -> Initialize Prism toolbar
+    this.initializePrismToolbar()
+
     // -> Highlight Code Blocks
-    Prism.highlightAllUnder(this.$refs.container)
+    if (this.$refs.container) {
+      Prism.highlightAllUnder(this.$refs.container)
+    }
 
     // -> Render Mermaid diagrams
     mermaid.mermaidAPI.initialize({
@@ -711,7 +704,98 @@ export default {
       if (focusNewComment) {
         document.querySelector('#discussion-new').focus()
       }
+    },
+    evaluateCondition (condition) {
+      if (!condition) return true
+      try {
+        // Create a safe evaluation context with page and user data
+        const context = {
+          user: {
+            permissions: this.$store ? this.$store.get('user/permissions') : [],
+            isAuthenticated: this.isAuthenticated
+          },
+          page: {
+            id: this.pageId,
+            path: this.path,
+            locale: this.locale,
+            isPublished: this.isPublished
+          }
+        }
+        // eslint-disable-next-line no-new-func
+        return new Function('context', `with(context) { return ${condition} }`)(context)
+      } catch (err) {
+        console.warn('[Plugin Injection] Failed to evaluate condition:', condition, err)
+        return false
+      }
+    },
+    initializePrismToolbar() {
+      // Guard against duplicate registration
+      if (this.prismInitialized || window._wikiPrismRegistered) {
+        return
+      }
+
+      // Check if Prism is available
+      if (!window.Prism || !window.Prism.plugins || !window.Prism.plugins.toolbar) {
+        console.warn('[Page] Prism toolbar plugin not available')
+        return
+      }
+
+      try {
+        // Check if button is already registered by checking the internal registry
+        if (window.Prism.plugins.toolbar.RegisteredButtons &&
+            window.Prism.plugins.toolbar.RegisteredButtons['copy-to-clipboard']) {
+          this.prismInitialized = true
+          window._wikiPrismRegistered = true
+          return
+        }
+
+        const ClipboardJS = require('clipboard')
+        Prism.plugins.toolbar.registerButton('copy-to-clipboard', (env) => {
+          const linkCopy = document.createElement('button')
+          linkCopy.textContent = 'Copy'
+          linkCopy.className = 'copy-button'
+
+          const clip = new ClipboardJS(linkCopy, {
+            text: () => { return env.code }
+          })
+
+          clip.on('success', () => {
+            linkCopy.textContent = 'Copied!'
+            setTimeout(() => {
+              linkCopy.textContent = 'Copy'
+            }, 2000)
+          })
+
+          clip.on('error', () => {
+            linkCopy.textContent = 'Press Ctrl+C to copy'
+            setTimeout(() => {
+              linkCopy.textContent = 'Copy'
+            }, 2000)
+          })
+
+          return linkCopy
+        })
+
+        this.prismInitialized = true
+        window._wikiPrismRegistered = true
+
+      } catch (err) {
+        // Silently handle duplicate registration (happens during HMR)
+        if (err.message && err.message.includes('already registered')) {
+          this.prismInitialized = true
+          window._wikiPrismRegistered = true
+        } else {
+          console.error('[Page] Failed to register Prism button:', err)
+        }
+      }
     }
+  },
+  beforeDestroy() {
+    // Clear Prism initialization flag for this component instance
+    this.prismInitialized = false
+
+    // Note: We keep window._wikiPrismRegistered to prevent re-registration
+    // The toolbar button is shared across all page instances
   }
 }
 </script>
