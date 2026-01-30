@@ -1,0 +1,60 @@
+id: test-plugin
+name: Test Plugin
+version: 1.0.0
+description: A test plugin to demonstrate the Wiki.js plugin system
+author:
+  name: Wiki.js Team
+  email: test@example.com
+license: MIT
+homepage: https://example.com
+keywords:
+  - test
+  - demo
+
+# Compatibility
+compatibility:
+  wikijs: ">=2.0.0"
+
+# Permissions required
+permissions:
+  - pages:read
+  - pages:write
+
+# Configuration schema
+config:
+  schema:
+    enabled:
+      type: boolean
+      title: Enable Test Plugin
+      hint: Toggle the test plugin on/off
+      order: 1
+      default: true
+    message:
+      type: string
+      title: Display Message
+      hint: Message to show in the toolbar button
+      order: 2
+      default: Hello from Plugin!
+
+# Client-side features
+hasClientCode: true
+
+# UI Injections
+uiInjections:
+  - location: page:toolbar
+    component: TestButton
+    position: end
+    condition: user.isAuthenticated
+
+# Admin pages
+adminPages:
+  - path: /test-plugin
+    component: TestAdmin.vue
+    icon: mdi-puzzle
+    label: Test Plugin
+    order: 100
+
+# Hooks
+hooks:
+  - page:save
+  - user:login

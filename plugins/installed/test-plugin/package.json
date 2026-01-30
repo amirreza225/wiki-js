@@ -1,0 +1,17 @@
+{
+  "name": "wikijs-test-plugin",
+  "version": "1.0.0",
+  "description": "A test plugin for Wiki.js plugin system",
+  "main": "server/index.js",
+  "scripts": {
+    "test": "echo \"No tests specified\""
+  },
+  "keywords": [
+    "wikijs",
+    "plugin",
+    "test"
+  ],
+  "author": "Wiki.js Team",
+  "license": "MIT",
+  "dependencies": {}
+}
