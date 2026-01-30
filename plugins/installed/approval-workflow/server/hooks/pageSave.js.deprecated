@@ -2,55 +2,58 @@
  * Page Save Hook
  *
  * Creates an approval request when a page is saved
+ *
+ * NOTE: Updated to use Phase 1 hook system signature
+ * Context is now bound as 'this' instead of passed as parameter
  */
-module.exports = async function pageSaveHook(hookData, context) {
+module.exports = async function (data) {
   try {
-    const { page, user, isNew } = hookData
+    const { page, user, isNew } = data
 
-    // Get plugin configuration
-    const config = context.plugin.config || {}
+    // Get plugin configuration (context is now 'this')
+    const config = this.config || {}
 
     // Check if approval workflow is enabled
     if (!config.enabled) {
-      context.logger.debug('Approval workflow is disabled, skipping')
-      return
+      this.logger.debug('Approval workflow is disabled, skipping')
+      return data
     }
 
     // Check if this type of change requires approval
     if (isNew && !config.requireApprovalForNew) {
-      context.logger.debug('New pages do not require approval, skipping')
-      return
+      this.logger.debug('New pages do not require approval, skipping')
+      return data
     }
 
     if (!isNew && !config.requireApprovalForEdit) {
-      context.logger.debug('Page edits do not require approval, skipping')
-      return
+      this.logger.debug('Page edits do not require approval, skipping')
+      return data
     }
 
     // Auto-approve for admins if configured
     if (config.autoApproveAdmins && user.isAdmin) {
-      context.logger.info(`Auto-approving change by admin: ${user.name}`)
-      return
+      this.logger.info(`Auto-approving change by admin: ${user.name}`)
+      return data
     }
 
     // Check if there's a path-specific setting
-    const ApprovalSetting = context.db.pluginModels.ApprovalSetting
+    const ApprovalSetting = this.db.pluginModels.ApprovalSetting
     const pathSetting = await ApprovalSetting.findForPath(page.path, page.localeCode)
 
     if (pathSetting) {
       if (!pathSetting.requireApproval) {
-        context.logger.debug(`Path ${page.path} does not require approval`)
-        return
+        this.logger.debug(`Path ${page.path} does not require approval`)
+        return data
       }
 
       if (pathSetting.autoApprove) {
-        context.logger.info(`Auto-approving change for path: ${page.path}`)
-        return
+        this.logger.info(`Auto-approving change for path: ${page.path}`)
+        return data
       }
     }
 
     // Create approval request
-    const Approval = context.db.pluginModels.Approval
+    const Approval = this.db.pluginModels.Approval
 
     const approval = await Approval.query().insert({
       pageId: page.id,
@@ -66,11 +69,11 @@ module.exports = async function pageSaveHook(hookData, context) {
         `Page updated: ${page.title}`
     })
 
-    context.logger.info(`Created approval request #${approval.id} for page ${page.id} by ${user.name}`)
+    this.logger.info(`Created approval request #${approval.id} for page ${page.id} by ${user.name}`)
 
     // Emit event for notification (if notifications module exists)
-    if (context.events) {
-      context.events.emit('plugin:approval:created', {
+    if (this.events) {
+      this.events.emit('plugin:approval:created', {
         approvalId: approval.id,
         pageId: page.id,
         pageTitle: page.title,
@@ -83,13 +86,16 @@ module.exports = async function pageSaveHook(hookData, context) {
       const emails = config.approverEmails.split(',').map(e => e.trim()).filter(e => e)
 
       if (emails.length > 0) {
-        context.logger.info(`Would notify approvers: ${emails.join(', ')}`)
+        this.logger.info(`Would notify approvers: ${emails.join(', ')}`)
         // In production, this would send actual emails
         // For demo, we just log
       }
     }
+
+    return data
   } catch (err) {
-    context.logger.error(`Error in page save hook: ${err.message}`)
+    this.logger.error(`Error in page save hook: ${err.message}`)
     // Don't throw - we don't want to block page saving if approval creation fails
+    return data
   }
 }

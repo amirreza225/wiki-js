@@ -173,6 +173,12 @@ module.exports = async () => {
   app.use('/', ctrl.upload)
 
   // ----------------------------------------
+  // Admin Plugin Upload
+  // ----------------------------------------
+
+  app.use('/admin/plugins', require('./controllers/plugins'))
+
+  // ----------------------------------------
   // Plugin Routes Placeholder
   // ----------------------------------------
   // IMPORTANT: Plugin router must be registered BEFORE ctrl.common

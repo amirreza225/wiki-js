@@ -224,5 +224,27 @@ module.exports = {
     }
 
     return {}
+  },
+
+  /**
+   * Initialize plugin config with default values from schema
+   * @param {Object} manifest - Plugin manifest
+   * @returns {Object} Config object with default values
+   */
+  initializeConfigDefaults(manifest) {
+    if (!manifest.config || !manifest.config.schema) {
+      return {}
+    }
+
+    const config = {}
+    const schema = manifest.config.schema
+
+    for (const [key, field] of Object.entries(schema)) {
+      if (field.default !== undefined) {
+        config[key] = field.default
+      }
+    }
+
+    return config
   }
 }

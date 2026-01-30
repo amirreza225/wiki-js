@@ -49,3 +49,5 @@ test-results/
 /server/locales/**/*.yml
 /claude-docs
 CLAUDE.md
+/plugins/cache
+/plugins/cache

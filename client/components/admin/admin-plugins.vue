@@ -11,6 +11,9 @@
           v-toolbar(color='primary', dark, dense, flat)
             v-toolbar-title Installed Plugins
             v-spacer
+            v-btn(color='success', @click='showInstallDialog', :disabled='loading')
+              v-icon(left) mdi-plus-circle
+              span Install Plugin
             v-btn(icon, @click='refresh')
               v-icon mdi-refresh
           v-data-table(
@@ -274,10 +277,95 @@
             :loading='uninstalling'
             :disabled='selectedPlugin.isEnabled'
           ) Uninstall
+
+    //- Install Dialog
+    v-dialog(v-model='installDialog', max-width='600', persistent)
+      v-card
+        v-toolbar(color='primary', dark, dense, flat)
+          v-toolbar-title Install Plugin from ZIP
+          v-spacer
+          v-btn(icon, @click='closeInstallDialog', :disabled='uploading')
+            v-icon mdi-close
+
+        v-card-text.pt-4
+          v-alert(type='info', text, v-if='!uploadFile && !installSuccess')
+            .body-2 Upload a plugin ZIP file to install it on this Wiki.js instance.
+            .body-2.mt-2 Requirements:
+            ul.mt-2
+              li Valid plugin.yml manifest
+              li Compatible with this Wiki.js version
+              li Maximum size: 50 MB
+
+          //- File Upload Input
+          div(v-if='!uploadFile && !installSuccess')
+            v-file-input(
+              v-model='uploadFile'
+              accept='.zip,application/zip,application/x-zip-compressed'
+              placeholder='Select plugin ZIP file'
+              prepend-icon='mdi-zip-box'
+              outlined
+              show-size
+              @change='validateFile'
+              :error-messages='uploadError'
+            )
+              template(v-slot:selection='{ text }')
+                v-chip(small, label, color='primary')
+                  v-icon(small, left) mdi-file-check
+                  span {{ text }}
+
+          //- Upload in Progress
+          div(v-else-if='uploading')
+            v-progress-linear(
+              :value='uploadProgress'
+              height='25'
+              striped
+              color='primary'
+            )
+              template(v-slot:default='{ value }')
+                strong {{ Math.ceil(value) }}%
+            .text-center.mt-2.body-2 Installing plugin...
+            .text-center.caption.grey--text Please wait, this may take a few moments
+
+          //- Success Message
+          v-alert(type='success', text, v-if='installSuccess')
+            v-icon(large, color='success', left) mdi-check-circle
+            .body-2 Plugin installed successfully!
+            .body-2.mt-2 You can now activate it from the plugins list.
+
+          //- Error Message
+          v-alert(type='error', text, v-if='installError')
+            v-icon(color='error', left) mdi-alert-circle
+            .body-2 Installation failed: {{ installError }}
+
+        v-card-actions
+          v-spacer
+          v-btn(text, @click='closeInstallDialog', :disabled='uploading') Cancel
+          v-btn(
+            color='primary'
+            @click='uploadPlugin'
+            :disabled='!uploadFile || uploading || installSuccess || !!uploadError'
+            :loading='uploading'
+          ) Install
+
+    //- Restart Overlay
+    v-overlay(:value='restartOverlay', z-index='9999', opacity='0.95')
+      v-container(fill-height, fluid)
+        v-row(align='center', justify='center')
+          v-col(cols='12', class='text-center')
+            v-progress-circular(
+              :size='120'
+              :width='8'
+              color='primary'
+              indeterminate
+            )
+            .display-1.white--text.mt-8 Restarting Server...
+            .subtitle-1.white--text.mt-4 Please wait while the server restarts
+            .caption.white--text.mt-2.grey--text.text--lighten-1 This will take a few seconds
 </template>
 
 <script>
 import gql from 'graphql-tag'
+import Cookies from 'js-cookie'
 
 export default {
   data() {
@@ -290,12 +378,23 @@ export default {
       configDialog: false,
       logsDialog: false,
       uninstallDialog: false,
+      installDialog: false,
+      uploadFile: null,
+      uploading: false,
+      uploadProgress: 0,
+      installSuccess: false,
+      installError: null,
+      uploadError: null,
       selectedPlugin: null,
       pluginLogs: [],
       logLevelFilter: 'all',
       logSearchQuery: '',
       configSchema: {},
       configValues: {},
+      restartOverlay: false,
+      restartCheckInterval: null,
+      restartPluginId: null,
+      restartExpectedState: null,
       headers: [
         { text: 'Plugin', value: 'name', sortable: true, width: '250px' },
         { text: 'Description', value: 'description', sortable: false },
@@ -400,6 +499,7 @@ export default {
                     message
                   }
                   requiresRestart
+                  restartReasons
                 }
               }
             }
@@ -413,20 +513,24 @@ export default {
 
         if (result.responseResult.succeeded) {
           this.$store.commit('showNotification', {
-            message: plugin.isEnabled ?
-              `Plugin ${plugin.name} activated successfully` :
-              `Plugin ${plugin.name} deactivated successfully`,
+            message: result.responseResult.message,
             style: 'success'
           })
 
           if (result.requiresRestart) {
-            this.$store.commit('showNotification', {
-              message: 'Server restart required for changes to take effect',
-              style: 'warning'
-            })
-          }
+            // Show restart overlay
+            this.restartOverlay = true
+            this.restartPluginId = plugin.id
+            this.restartExpectedState = plugin.isEnabled
 
-          await this.loadPlugins()
+            // Wait a moment for the overlay to appear
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            // Start polling for server restart completion
+            this.startRestartPolling()
+          } else {
+            await this.loadPlugins()
+          }
         } else {
           throw new Error(result.responseResult.message)
         }
@@ -716,6 +820,200 @@ export default {
           style: 'error'
         })
       })
+    },
+    /**
+     * Open install dialog
+     */
+    showInstallDialog() {
+      this.installDialog = true
+      this.uploadFile = null
+      this.uploading = false
+      this.uploadProgress = 0
+      this.installSuccess = false
+      this.installError = null
+      this.uploadError = null
+    },
+    /**
+     * Close install dialog
+     */
+    closeInstallDialog() {
+      if (this.uploading) return
+
+      this.installDialog = false
+      this.uploadFile = null
+      this.uploadError = null
+      this.installError = null
+
+      // Refresh plugin list if installation succeeded
+      if (this.installSuccess) {
+        this.installSuccess = false
+        this.loadPlugins()
+      }
+    },
+    /**
+     * Validate selected file
+     */
+    validateFile() {
+      if (!this.uploadFile) {
+        this.uploadError = null
+        return
+      }
+
+      this.installError = null
+      this.uploadError = null
+
+      // Validate file type
+      if (!this.uploadFile.name.endsWith('.zip')) {
+        this.uploadError = 'Only ZIP files are allowed'
+        this.uploadFile = null
+        return
+      }
+
+      // Validate file size (50MB max)
+      const maxSize = 50 * 1024 * 1024
+      if (this.uploadFile.size > maxSize) {
+        this.uploadError = 'File size exceeds 50 MB limit'
+        this.uploadFile = null
+        return
+      }
+
+      this.$store.commit('showNotification', {
+        message: `Ready to install: ${this.uploadFile.name}`,
+        style: 'info'
+      })
+    },
+    /**
+     * Upload and install plugin
+     */
+    async uploadPlugin() {
+      if (!this.uploadFile) return
+
+      this.uploading = true
+      this.uploadProgress = 0
+      this.installError = null
+      this.uploadError = null
+      this.installSuccess = false
+
+      try {
+        const formData = new FormData()
+        formData.append('plugin', this.uploadFile)
+
+        // Simulate progress (fetch doesn't support upload progress natively)
+        const progressInterval = setInterval(() => {
+          if (this.uploadProgress < 90) {
+            this.uploadProgress += 10
+          }
+        }, 200)
+
+        const jwtToken = Cookies.get('jwt')
+        const headers = {}
+        if (jwtToken) {
+          headers['Authorization'] = `Bearer ${jwtToken}`
+        }
+
+        const response = await fetch('/admin/plugins/upload', {
+          method: 'POST',
+          headers,
+          body: formData
+        })
+
+        clearInterval(progressInterval)
+        this.uploadProgress = 100
+
+        const result = await response.json()
+
+        if (result.success) {
+          this.installSuccess = true
+          this.$store.commit('showNotification', {
+            message: 'Plugin installed successfully',
+            style: 'success'
+          })
+
+          // Auto-close after 2 seconds
+          setTimeout(() => {
+            this.closeInstallDialog()
+          }, 2000)
+        } else {
+          throw new Error(result.message || 'Installation failed')
+        }
+      } catch (err) {
+        this.installError = err.message || 'Unknown error occurred'
+        this.$store.commit('showNotification', {
+          message: 'Failed to install plugin: ' + err.message,
+          style: 'error'
+        })
+      }
+
+      this.uploading = false
+    },
+    async startRestartPolling() {
+      // Wait for server to start restarting (server has 3s delay + restart time)
+      // This prevents polling while server is definitely down
+      await new Promise(resolve => setTimeout(resolve, 5000))
+
+      // Poll for server restart completion AND plugin activation
+      let attemptCount = 0
+      const maxAttempts = 30 // 30 seconds max (after initial 5s wait)
+
+      this.restartCheckInterval = setInterval(async () => {
+        attemptCount++
+
+        try {
+          // Check if server is back AND if the plugin is in expected state
+          const response = await this.$apollo.query({
+            query: gql`
+              query {
+                plugins {
+                  list {
+                    id
+                    isEnabled
+                    status
+                  }
+                }
+              }
+            `,
+            fetchPolicy: 'network-only'
+          })
+
+          if (response.data && response.data.plugins && response.data.plugins.list) {
+            // Find the plugin we toggled
+            const plugin = response.data.plugins.list.find(p => p.id === this.restartPluginId)
+
+            // Check if plugin is in expected state
+            if (plugin && plugin.isEnabled === this.restartExpectedState) {
+              // Plugin is in the correct state! Clear interval and reload page
+              clearInterval(this.restartCheckInterval)
+              this.restartCheckInterval = null
+
+              // Wait a bit more to ensure full activation
+              await new Promise(resolve => setTimeout(resolve, 1000))
+
+              // Reload the page
+              window.location.reload()
+            }
+          }
+        } catch (err) {
+          // Server still down or error, continue polling silently
+          if (attemptCount >= maxAttempts) {
+            // Max attempts reached, give up
+            clearInterval(this.restartCheckInterval)
+            this.restartCheckInterval = null
+            this.restartOverlay = false
+
+            this.$store.commit('showNotification', {
+              message: 'Server restart timed out. Please refresh the page manually.',
+              style: 'error'
+            })
+          }
+        }
+      }, 1000) // Poll every second
+    }
+  },
+  beforeDestroy() {
+    // Cleanup polling interval if component is destroyed
+    if (this.restartCheckInterval) {
+      clearInterval(this.restartCheckInterval)
+      this.restartCheckInterval = null
     }
   }
 }

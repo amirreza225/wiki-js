@@ -269,19 +269,18 @@ module.exports = {
   /**
    * Log plugin error to database
    * @param {string} pluginId - Plugin identifier
-   * @param {string} errorType - Error type
+   * @param {string} context - Error context/type
    * @param {Error} error - Error object
    */
-  async logPluginError(pluginId, errorType, error) {
+  async logPluginError(pluginId, context, error) {
     try {
-      await WIKI.models.pluginErrors.query().insert({
+      await WIKI.models.pluginErrors.log(
         pluginId,
-        errorType,
-        errorMessage: error.message,
-        stackTrace: error.stack,
-        createdAt: new Date().toISOString(),
-        resolved: false
-      })
+        'error',
+        error.message,
+        context,
+        error.stack
+      )
     } catch (logError) {
       WIKI.logger.warn(`Failed to log error for plugin ${pluginId}: ${logError.message}`)
     }

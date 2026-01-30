@@ -87,4 +87,5 @@ type PluginError {
 type PluginActivationResponse {
   responseResult: ResponseStatus!
   requiresRestart: Boolean!
+  restartReasons: [String]!
 }

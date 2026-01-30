@@ -1,10 +1,10 @@
 {
   "plugin": "test-plugin",
-  "version": 1769772353744,
+  "version": 1769776359490,
   "assets": {
-    "js": "test-plugin.2dcf6192.js",
-    "css": "test-plugin.85bf7176.css"
+    "css": "test-plugin.588d84c7.css",
+    "js": "test-plugin.a5969bc8.js"
   },
-  "js": "test-plugin.2dcf6192.js",
-  "css": "test-plugin.85bf7176.css"
+  "css": "test-plugin.588d84c7.css",
+  "js": "test-plugin.a5969bc8.js"
 }

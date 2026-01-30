@@ -183,5 +183,28 @@ module.exports = {
       default:
         throw new Error('Cannot restart server: Invalid designation')
     }
+  },
+  /**
+   * Trigger automatic restart
+   * In development: uses hot reload
+   * In production: exits cleanly, letting process manager restart
+   * @param {number} delayMs - Delay before restart in milliseconds (default: 2000)
+   */
+  async triggerRestart(delayMs = 2000) {
+    WIKI.logger.info(`[Auto Restart] Server will restart in ${delayMs}ms...`)
+
+    // Wait for the specified delay to allow response to be sent
+    await Promise.delay(delayMs)
+
+    if (global.DEV && global.DEV_RELOAD) {
+      // Development mode - use in-process hot reload
+      WIKI.logger.info('[Auto Restart] Triggering hot reload...')
+      global.DEV_RELOAD()
+    } else {
+      // Production mode - exit cleanly, let process manager restart
+      WIKI.logger.info('[Auto Restart] Exiting process for restart...')
+      WIKI.logger.info('[Auto Restart] Process manager will restart the application')
+      process.exit(0)
+    }
   }
 }

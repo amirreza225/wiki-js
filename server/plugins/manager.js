@@ -87,6 +87,9 @@ module.exports = {
       // Run migrations
       await this.runMigrations(pluginId, installPath)
 
+      // Initialize config with defaults from schema
+      const defaultConfig = loader.initializeConfigDefaults(manifest)
+
       // Insert into database
       await WIKI.models.plugins.query().insert({
         id: pluginId,
@@ -99,7 +102,7 @@ module.exports = {
         homepage: manifest.homepage || '',
         keywords: manifest.keywords || [],
         compatibility: manifest.compatibility || null,
-        config: manifest.config || null,
+        config: defaultConfig,
         manifest: manifest, // Store full manifest for client-side use
         permissions: manifest.permissions || [],
         isEnabled: false,
@@ -172,24 +175,32 @@ module.exports = {
         WIKI.logger.warn(`[PLUGIN ${pluginId}] ${validation.warning}`)
       }
 
-      // Check if plugin has GraphQL extensions (requires restart)
-      const hasGraphQL = await this.hasGraphQLExtensions(plugin.installPath)
+      // Load manifest to check features
+      const loader = require('./loader')
+      const manifest = await loader.loadManifest(plugin.installPath)
+
+      // Check if plugin requires restart (GraphQL, Vue components, etc.)
+      const restartCheck = await this.requiresRestart(plugin.installPath, manifest)
 
       // Update database
       await WIKI.models.plugins.query()
         .patch({
           isEnabled: true,
-          status: hasGraphQL ? 'inactive' : 'active',
-          state: hasGraphQL ?
-            { status: 'pending_restart', message: 'Server restart required to activate GraphQL extensions' } :
+          status: restartCheck.requiresRestart ? 'inactive' : 'active',
+          state: restartCheck.requiresRestart ?
+            {
+              status: 'pending_restart',
+              message: 'Server restart required for changes to take effect',
+              reasons: restartCheck.reasons
+            } :
             { status: 'active', message: 'Plugin activated successfully' },
           activatedAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         })
         .where('id', pluginId)
 
-      // If no GraphQL, load plugin immediately
-      if (!hasGraphQL) {
+      // If no restart required, load plugin immediately
+      if (!restartCheck.requiresRestart) {
         const updatedPlugin = await WIKI.models.plugins.query().findById(pluginId)
         await runtime.loadPlugin(updatedPlugin)
 
@@ -223,9 +234,25 @@ module.exports = {
           .where('id', pluginId)
       }
 
-      WIKI.logger.info(`[Plugin Manager] Plugin ${pluginId} ${hasGraphQL ? 'marked for activation (restart required)' : 'activated'}`)
+      WIKI.logger.info(`[Plugin Manager] Plugin ${pluginId} ${restartCheck.requiresRestart ? 'marked for activation (restart required)' : 'activated'}`)
 
-      return { requiresRestart: hasGraphQL }
+      // Trigger automatic restart if needed
+      if (restartCheck.requiresRestart && WIKI.config.autoRestartOnPluginChange !== false) {
+        WIKI.logger.info(`[Plugin Manager] Triggering automatic restart for plugin ${pluginId}`)
+        // Use setImmediate to return response before restarting
+        setImmediate(async () => {
+          try {
+            await WIKI.servers.triggerRestart(3000) // 3 second delay
+          } catch (err) {
+            WIKI.logger.error(`[Plugin Manager] Auto restart failed: ${err.message}`)
+          }
+        })
+      }
+
+      return {
+        requiresRestart: restartCheck.requiresRestart,
+        reasons: restartCheck.reasons
+      }
     } catch (err) {
       WIKI.logger.error(`[Plugin Manager] Failed to activate plugin ${pluginId}: ${err.message}`)
 
@@ -264,8 +291,12 @@ module.exports = {
         throw new Error(`Plugin ${pluginId} is not enabled`)
       }
 
-      // Check if plugin has GraphQL extensions (requires restart)
-      const hasGraphQL = await this.hasGraphQLExtensions(plugin.installPath)
+      // Load manifest to check features
+      const loader = require('./loader')
+      const manifest = await loader.loadManifest(plugin.installPath)
+
+      // Check if plugin requires restart (GraphQL, Vue components, etc.)
+      const restartCheck = await this.requiresRestart(plugin.installPath, manifest)
 
       // Call deactivated lifecycle hook if plugin is loaded
       if (plugin.instance && typeof plugin.instance.deactivated === 'function') {
@@ -290,8 +321,12 @@ module.exports = {
         .patch({
           isEnabled: false,
           status: 'inactive',
-          state: hasGraphQL ?
-            { status: 'pending_restart', message: 'Server restart required to remove GraphQL extensions' } :
+          state: restartCheck.requiresRestart ?
+            {
+              status: 'pending_restart',
+              message: 'Server restart required for changes to take effect',
+              reasons: restartCheck.reasons
+            } :
             { status: 'inactive', message: 'Plugin deactivated successfully' },
           updatedAt: new Date().toISOString()
         })
@@ -299,7 +334,23 @@ module.exports = {
 
       WIKI.logger.info(`[Plugin Manager] Plugin ${pluginId} deactivated`)
 
-      return { requiresRestart: hasGraphQL }
+      // Trigger automatic restart if needed
+      if (restartCheck.requiresRestart && WIKI.config.autoRestartOnPluginChange !== false) {
+        WIKI.logger.info(`[Plugin Manager] Triggering automatic restart for plugin ${pluginId}`)
+        // Use setImmediate to return response before restarting
+        setImmediate(async () => {
+          try {
+            await WIKI.servers.triggerRestart(3000) // 3 second delay
+          } catch (err) {
+            WIKI.logger.error(`[Plugin Manager] Auto restart failed: ${err.message}`)
+          }
+        })
+      }
+
+      return {
+        requiresRestart: restartCheck.requiresRestart,
+        reasons: restartCheck.reasons
+      }
     } catch (err) {
       WIKI.logger.error(`[Plugin Manager] Failed to deactivate plugin ${pluginId}: ${err.message}`)
 
@@ -438,6 +489,48 @@ module.exports = {
   },
 
   /**
+   * Check if plugin requires server restart to activate/deactivate
+   * @param {string} pluginPath - Absolute path to plugin directory
+   * @param {Object} manifest - Plugin manifest object (optional)
+   * @returns {Object} Object with requiresRestart boolean and reasons array
+   */
+  async requiresRestart(pluginPath, manifest) {
+    const reasons = []
+
+    // Check for GraphQL extensions (Apollo Server limitation)
+    if (await this.hasGraphQLExtensions(pluginPath)) {
+      reasons.push('GraphQL schema extensions require server restart (Apollo Server 2 limitation)')
+    }
+
+    // Check for client-side code (requires Webpack rebuild)
+    if (manifest) {
+      if (manifest.hasClientCode) {
+        reasons.push('Client-side code requires asset rebuild')
+      }
+      if (manifest.adminPages && manifest.adminPages.length > 0) {
+        reasons.push('Admin pages require Vue component rebuild')
+      }
+      if (manifest.uiInjections && manifest.uiInjections.length > 0) {
+        reasons.push('UI injections require Vue component rebuild')
+      }
+      if (manifest.storeModules && manifest.storeModules.length > 0) {
+        reasons.push('Vuex store modules require rebuild')
+      }
+    } else {
+      // If no manifest provided, check for client directory
+      const clientDir = path.join(pluginPath, 'client')
+      if (await fs.pathExists(clientDir)) {
+        reasons.push('Client-side code detected (requires rebuild)')
+      }
+    }
+
+    return {
+      requiresRestart: reasons.length > 0,
+      reasons
+    }
+  },
+
+  /**
    * Validate that plugin bundles use externals correctly
    * @param {string} pluginPath - Absolute path to plugin directory
    * @returns {Object} Validation result with valid flag and optional error/warning
@@ -446,8 +539,28 @@ module.exports = {
     const cachePath = path.join(WIKI.ROOTPATH, 'plugins', 'cache', path.basename(pluginPath))
     const manifestPath = path.join(cachePath, 'manifest.json')
 
+    // Check if plugin declares client-side code
+    const pluginYmlPath = path.join(pluginPath, 'plugin.yml')
+    let hasClientCode = false
+
+    if (await fs.pathExists(pluginYmlPath)) {
+      const yaml = require('js-yaml')
+      const pluginYml = yaml.load(await fs.readFile(pluginYmlPath, 'utf8'))
+
+      // Check for explicit hasClientCode flag or client-side indicators
+      hasClientCode = pluginYml.hasClientCode === true ||
+                      pluginYml.adminPages?.length > 0 ||
+                      pluginYml.uiInjections?.length > 0 ||
+                      pluginYml.storeModules?.length > 0 ||
+                      pluginYml.components?.length > 0 ||
+                      pluginYml.pages?.length > 0
+    }
+
     if (!await fs.pathExists(manifestPath)) {
-      return { valid: true, warning: 'No client bundle found' }
+      // Only warn if plugin declares client code
+      return hasClientCode
+        ? { valid: true, warning: 'No client bundle found' }
+        : { valid: true }
     }
 
     try {
@@ -455,7 +568,10 @@ module.exports = {
       const bundlePath = path.join(cachePath, manifest.js || manifest.assets.js)
 
       if (!await fs.pathExists(bundlePath)) {
-        return { valid: true, warning: 'No client bundle found' }
+        // Only warn if plugin declares client code
+        return hasClientCode
+          ? { valid: true, warning: 'No client bundle found' }
+          : { valid: true }
       }
 
       const bundleContent = await fs.readFile(bundlePath, 'utf8')

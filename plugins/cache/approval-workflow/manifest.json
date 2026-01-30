@@ -1,10 +1,10 @@
 {
   "plugin": "approval-workflow",
-  "version": 1769772353735,
+  "version": 1769776359533,
   "assets": {
-    "js": "approval-workflow.60f332f0.js",
+    "js": "approval-workflow.4c4fe8b6.js",
     "css": "approval-workflow.aead3db5.css"
   },
-  "js": "approval-workflow.60f332f0.js",
+  "js": "approval-workflow.4c4fe8b6.js",
   "css": "approval-workflow.aead3db5.css"
 }

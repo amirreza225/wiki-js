@@ -26,6 +26,8 @@ const init = {
       }),
       hotMiddleware: require('webpack-hot-middleware')(global.WP)
     }
+    // Expose reload function for programmatic restarts (e.g., plugin activation)
+    global.DEV_RELOAD = this.reload.bind(this)
     global.WP_DEV.devMiddleware.waitUntilValid(() => {
       console.info(chalk.yellow.bold('>>> Starting Wiki.js in DEVELOPER mode...'))
       require('../server')
@@ -40,16 +42,32 @@ const init = {
         }
       })
 
+      // Watch server subdirectories only (not root files like .restart-trigger)
       const devWatcher = chokidar.watch([
-        './server',
-        '!./server/views/master.pug'
+        './server/core',
+        './server/graph',
+        './server/models',
+        './server/modules',
+        './server/controllers',
+        './server/middlewares',
+        './server/helpers',
+        './server/jobs',
+        './server/plugins',
+        './server/db',
+        './server/app',
+        './server/locales',
+        './server/templates',
+        './server/index.js',
+        './server/master.js',
+        './server/setup.js'
       ], {
         cwd: process.cwd(),
         ignoreInitial: true,
-        atomic: 400
+        atomic: 400,
+        ignored: ['**/views/master.pug']
       })
       devWatcher.on('ready', () => {
-        devWatcher.on('all', _.debounce(() => {
+        devWatcher.on('all', _.debounce((event, path) => {
           console.warn(chalk.yellow.bold('--- >>>>>>>>>>>>>>>>>>>>>>>>>>>> ---'))
           console.warn(chalk.yellow.bold('--- Changes detected: Restarting ---'))
           console.warn(chalk.yellow.bold('--- <<<<<<<<<<<<<<<<<<<<<<<<<<<< ---'))

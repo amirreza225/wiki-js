@@ -14,7 +14,7 @@ keywords:
   - hello-world
 
 compatibility:
-  wikijs: ">=2.5.0"
+  wikijs: ">=2.0.0"
   node: ">=18.0.0"
 
 permissions:
@@ -37,5 +37,7 @@ config:
       default: true
 
 hooks:
-  - page:save
-  - user:login
+  - page:create
+  - page:update
+  - search:beforeIndex
+  - auth:afterLogin

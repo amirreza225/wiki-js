@@ -116,12 +116,24 @@ module.exports = {
     require('./telemetry').init()
 
     process.on('unhandledRejection', (err) => {
-      WIKI.logger.warn(err)
-      WIKI.telemetry.sendError(err)
+      if (WIKI && WIKI.logger) {
+        WIKI.logger.warn(err)
+      } else {
+        console.error('Unhandled Rejection:', err)
+      }
+      if (WIKI && WIKI.telemetry) {
+        WIKI.telemetry.sendError(err)
+      }
     })
     process.on('uncaughtException', (err) => {
-      WIKI.logger.warn(err)
-      WIKI.telemetry.sendError(err)
+      if (WIKI && WIKI.logger) {
+        WIKI.logger.warn(err)
+      } else {
+        console.error('Uncaught Exception:', err)
+      }
+      if (WIKI && WIKI.telemetry) {
+        WIKI.telemetry.sendError(err)
+      }
     })
   },
   /**

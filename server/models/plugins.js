@@ -100,6 +100,7 @@ module.exports = class Plugin extends Model {
               homepage: manifest.homepage || '',
               keywords: manifest.keywords || [],
               compatibility: manifest.compatibility || null,
+              manifest: manifest,
               permissions: manifest.permissions || [],
               installPath: pluginPath,
               updatedAt: new Date().toISOString()
@@ -117,6 +118,10 @@ module.exports = class Plugin extends Model {
             (typeof manifest.repository === 'string' ? { url: manifest.repository } : manifest.repository) :
             null
 
+          // Initialize config with defaults from schema
+          const loader = require('../plugins/loader')
+          const defaultConfig = loader.initializeConfigDefaults(manifest)
+
           await WIKI.models.plugins.query().insert({
             id: manifest.id,
             name: manifest.name,
@@ -128,7 +133,8 @@ module.exports = class Plugin extends Model {
             homepage: manifest.homepage || '',
             keywords: manifest.keywords || [],
             compatibility: manifest.compatibility || null,
-            config: manifest.config || null,
+            config: defaultConfig,
+            manifest: manifest,
             permissions: manifest.permissions || [],
             isEnabled: false,
             isInstalled: true,

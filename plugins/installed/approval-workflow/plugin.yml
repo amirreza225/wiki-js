@@ -63,9 +63,10 @@ config:
       order: 6
       default: ""
 
-# Lifecycle hooks
+# Lifecycle hooks (migrated to Phase 1 hooks)
 hooks:
-  - page:save
+  - page:create
+  - page:update
 
 # Admin pages
 adminPages:

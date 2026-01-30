@@ -1,7 +1,6 @@
 {
   "watch": [
     "server/",
-    "plugins/installed/",
     "config.yml",
     "dev/index.js"
   ],
@@ -12,7 +11,7 @@
     "assets/",
     "data/",
     "logs/",
-    "plugins/cache/",
+    "plugins/",
     "**/*.test.js",
     "**/*.spec.js"
   ],

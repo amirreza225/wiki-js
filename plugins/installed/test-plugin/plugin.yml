@@ -54,7 +54,8 @@ adminPages:
     label: Test Plugin
     order: 100
 
-# Hooks
+# Hooks (migrated to Phase 1 hooks)
 hooks:
-  - page:save
-  - user:login
+  - page:create
+  - page:update
+  - auth:afterLogin

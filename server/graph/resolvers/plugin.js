@@ -117,18 +117,26 @@ module.exports = {
     async activate(obj, args) {
       try {
         const result = await WIKI.plugins.manager.activatePlugin(args.id)
+
+        // Build detailed message if restart required
+        let message = result.requiresRestart ?
+          'Plugin marked for activation. Server restart required.' :
+          'Plugin activated successfully'
+
+        if (result.requiresRestart && result.reasons && result.reasons.length > 0) {
+          message += '\n\nReasons:\n' + result.reasons.map(r => `• ${r}`).join('\n')
+        }
+
         return {
-          responseResult: graphHelper.generateSuccess(
-            result.requiresRestart ?
-              'Plugin marked for activation. Server restart required.' :
-              'Plugin activated successfully'
-          ),
-          requiresRestart: result.requiresRestart
+          responseResult: graphHelper.generateSuccess(message),
+          requiresRestart: result.requiresRestart,
+          restartReasons: result.reasons || []
         }
       } catch (err) {
         return {
-          responseResult: graphHelper.generateError(err),
-          requiresRestart: false
+          responseResult: graphHelper.generateError(err, false),
+          requiresRestart: false,
+          restartReasons: []
         }
       }
     },
@@ -139,18 +147,26 @@ module.exports = {
     async deactivate(obj, args) {
       try {
         const result = await WIKI.plugins.manager.deactivatePlugin(args.id)
+
+        // Build detailed message if restart required
+        let message = result.requiresRestart ?
+          'Plugin marked for deactivation. Server restart required.' :
+          'Plugin deactivated successfully'
+
+        if (result.requiresRestart && result.reasons && result.reasons.length > 0) {
+          message += '\n\nReasons:\n' + result.reasons.map(r => `• ${r}`).join('\n')
+        }
+
         return {
-          responseResult: graphHelper.generateSuccess(
-            result.requiresRestart ?
-              'Plugin marked for deactivation. Server restart required.' :
-              'Plugin deactivated successfully'
-          ),
-          requiresRestart: result.requiresRestart
+          responseResult: graphHelper.generateSuccess(message),
+          requiresRestart: result.requiresRestart,
+          restartReasons: result.reasons || []
         }
       } catch (err) {
         return {
-          responseResult: graphHelper.generateError(err),
-          requiresRestart: false
+          responseResult: graphHelper.generateError(err, false),
+          requiresRestart: false,
+          restartReasons: []
         }
       }
     },
